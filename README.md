@@ -1,4 +1,4 @@
-# client.swifly.net Render Site — RaidMax Grafana T7 Only
+# client.swifly.net Render Site — RaidMax datasource resolver
 
 No Render env vars needed.
 
@@ -9,29 +9,15 @@ Build Command: npm install
 Start Command: npm start
 ```
 
+This version fixes the Grafana `Data source not found` problem by resolving Grafana datasource variables before calling `/api/ds/query`.
+
 The patched Swifly client reads:
 
 ```txt
 https://client.swifly.net/servers.json
 ```
 
-This version understands that:
-
-```txt
-http://api.raidmax.org:5000/servers
-```
-
-is an HTML page, not a JSON API. It follows the embedded Grafana iframe and tries Grafana's dashboard/data API.
-
-It returns:
-
-```txt
-mp1.swifly.net:1154
-+
-ONLY RaidMax servers that have T7 / BO3 / BOIII markers
-```
-
-## Test after deploy
+Test after deploy:
 
 ```txt
 https://client.swifly.net/servers.json
@@ -39,9 +25,15 @@ https://client.swifly.net/raidmax.json
 https://client.swifly.net/status
 ```
 
-`/raidmax.json` shows debug info including the iframe URL, Grafana API attempt, and included servers.
+If it still imports 0, paste the full `/raidmax.json` again, especially:
 
-## Updater files
+```txt
+datasources
+dashboardVariables
+unresolvedDatasources
+panelRows
+grafanaQueryErrors
+```
 
 Updater files go here:
 
