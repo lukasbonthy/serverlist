@@ -1,0 +1,14 @@
+{
+  "name": "client-swifly-net-server-list",
+  "version": "1.0.0",
+  "description": "client.swifly.net server-list site and UDP master server for Swifly.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

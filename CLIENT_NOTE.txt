@@ -1,0 +1,7 @@
+The client should point to:
+
+client.swifly.net:20810
+
+The server-list app returns only:
+
+mp1.swifly.net:1154
