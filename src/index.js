@@ -84,15 +84,11 @@ function getManifests() {
 }
 
 function sendManifest(res, manifest) {
-  // FORCE FRESH MANIFEST:
-  // This response is generated live from public/boiii on every request.
-  // Do not read public/boiii.json here, because that can get stale.
   res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
   res.setHeader("CDN-Cache-Control", "no-store");
   res.setHeader("Surrogate-Control", "no-store");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
-  res.setHeader("Last-Modified", new Date().toUTCString());
   res.removeHeader("ETag");
   res.status(200).type("application/json").send(JSON.stringify(manifest, null, 2) + "
 ");
@@ -904,6 +900,7 @@ app.get("/status", async (_req, res) => {
 });
 
 
+
 app.get("/manifest-debug.json", (_req, res) => {
   const { main, beta } = getManifests();
   const wanted = "data/ui_scripts/server_browser/__init__.lua";
@@ -919,7 +916,7 @@ app.get("/manifest-debug.json", (_req, res) => {
   res.removeHeader("ETag");
   res.json({
     ok: true,
-    manifestMode: "LIVE_GENERATED_FROM_PUBLIC_BOIII_EVERY_REQUEST",
+    note: "This build uses the uploaded __init__(2).lua contents but hosts it as __init__.lua.",
     checkedFile: wanted,
     actualExists,
     actualSize,
@@ -927,6 +924,10 @@ app.get("/manifest-debug.json", (_req, res) => {
     mainEntry,
     betaEntry,
     matches: !!(mainEntry && actualSize === mainEntry[1] && actualSha1 === mainEntry[2]),
+    expectedForThisBuild: {
+      size: 43618,
+      sha1: "6EAAF7A299CE5D4977E397A930E0C3F30BBE183A"
+    },
     serverStartedAt: SERVER_STARTED_AT,
     generatedAt: new Date().toISOString(),
     mainFileCount: main.length,
