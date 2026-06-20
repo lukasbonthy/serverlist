@@ -83,15 +83,20 @@ function getManifests() {
 }
 
 function sendManifest(res, manifest) {
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  // Never serve stale manifest data. This is generated from the actual files
+  // inside public/boiii on every request.
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
   res.type("json").send(JSON.stringify(manifest, null, 2) + "\n");
 }
 
 function sendFileIfExists(res, filePath) {
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   res.sendFile(filePath);
   return true;
 }
@@ -850,13 +855,13 @@ app.get("/health", (_req, res) => {
 
 app.get("/servers.json", async (_req, res) => {
   const servers = await getMergedServers();
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   res.json({ servers });
 });
 
 app.get("/raidmax.json", async (_req, res) => {
   await fetchRaidmaxT7Servers(true);
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   res.json({
     mode: "GRAFANA_CONNECT_COLUMN_T7_ONLY",
     error: cachedRaidmaxError,
@@ -893,15 +898,36 @@ app.get("/status", async (_req, res) => {
 app.get("/manifest-debug.json", (_req, res) => {
   const { main, beta } = getManifests();
   const wanted = "data/ui_scripts/server_browser/__init__.lua";
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  const filePath = path.join(BOIII_DIR, wanted);
+  const actualExists = fs.existsSync(filePath);
+  const actualSize = actualExists ? fs.statSync(filePath).size : null;
+  const actualSha1 = actualExists ? sha1File(filePath) : null;
+  const mainEntry = main.find((entry) => entry[0] === wanted) || null;
+  const betaEntry = beta.find((entry) => entry[0] === wanted) || null;
+
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   res.json({
     ok: true,
+    message: "If actualSize and mainEntry[1] match, the manifest is correct.",
     checkedFile: wanted,
-    mainEntry: main.find((entry) => entry[0] === wanted) || null,
-    betaEntry: beta.find((entry) => entry[0] === wanted) || null,
+    actualExists,
+    actualSize,
+    actualSha1,
+    mainEntry,
+    betaEntry,
     mainFileCount: main.length,
     betaFileCount: beta.length
   });
+});
+
+app.get("/rebuild-manifest-now", (_req, res) => {
+  const { main, beta } = getManifests();
+  const wanted = "data/ui_scripts/server_browser/__init__.lua";
+  const mainEntry = main.find((entry) => entry[0] === wanted) || null;
+  fs.writeFileSync(path.join(PUBLIC_DIR, "boiii.json"), JSON.stringify(main, null, 2) + "\n");
+  fs.writeFileSync(path.join(PUBLIC_DIR, "boiii-beta.json"), JSON.stringify(beta, null, 2) + "\n");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+  res.json({ ok: true, rebuilt: true, mainEntry });
 });
 
 app.get("/boiii.json", (_req, res) => sendManifest(res, getManifests().main));
@@ -925,7 +951,7 @@ app.use("/boiii", express.static(BOIII_DIR, {
   lastModified: true,
   maxAge: 0,
   setHeaders(res) {
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   }
 }));
 
