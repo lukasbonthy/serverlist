@@ -9,10 +9,11 @@ const cors = require("cors");
 const PORT = Number(process.env.PORT || 3000);
 const HOST = "0.0.0.0";
 
-// No Render env spam. Change these here if you need to.
 const PUBLIC_HOST = "client.swifly.net";
 const PINNED_SERVERS = ["mp1.swifly.net:1154"];
-const RAIDMAX_URL = "http://api.raidmax.org:5000/servers";
+
+// This page is HTML and embeds the real list through Grafana.
+const RAIDMAX_SERVERS_PAGE = "http://api.raidmax.org:5000/servers";
 const RAIDMAX_CACHE_SECONDS = 60;
 
 const ROOT = path.resolve(__dirname, "..");
@@ -24,7 +25,7 @@ let cachedMainManifest = null;
 let cachedBetaManifest = null;
 
 let cachedRaidmaxServers = [];
-let cachedRaidmaxSkipped = [];
+let cachedRaidmaxDebug = {};
 let cachedRaidmaxAt = 0;
 let cachedRaidmaxError = null;
 
@@ -112,6 +113,99 @@ function sendFileIfExists(res, filePath) {
   return true;
 }
 
+async function fetchText(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 12000);
+
+  try {
+    const response = await fetch(url, {
+      redirect: "follow",
+      headers: {
+        "Accept": options.accept || "text/html,application/json,text/plain;q=0.8,*/*;q=0.5",
+        "User-Agent": "Swifly-T7-ServerList/2.0",
+        ...(options.headers || {})
+      },
+      method: options.method || "GET",
+      body: options.body,
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`${url} returned HTTP ${response.status}: ${text.slice(0, 160)}`);
+    }
+
+    return {
+      url: response.url || url,
+      text,
+      headers: response.headers
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function tryJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function htmlUnescape(value) {
+  return value
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#39;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">");
+}
+
+function absoluteUrl(url, base) {
+  try {
+    return new URL(htmlUnescape(url), base).toString();
+  } catch {
+    return null;
+  }
+}
+
+function extractIframeUrls(html, base) {
+  const urls = [];
+  const iframeRegex = /<iframe[^>]+src=["']([^"']+)["']/gi;
+  let match;
+
+  while ((match = iframeRegex.exec(html))) {
+    const url = absoluteUrl(match[1], base);
+    if (url) urls.push(url);
+  }
+
+  return [...new Set(urls)];
+}
+
+function parseGrafanaDashboardUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/d\/([^/]+)\/([^/?#]+)/i);
+    if (!match) return null;
+
+    return {
+      origin: parsed.origin,
+      uid: match[1],
+      slug: match[2],
+      url: parsed.toString()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeHostPort(value) {
+  if (typeof value !== "string") return false;
+  return /^(\[[^\]]+\]|[^:/?#\s]+):(\d{1,5})$/.test(value.trim());
+}
+
 function cleanAddress(value) {
   if (typeof value !== "string") return null;
 
@@ -124,14 +218,22 @@ function cleanAddress(value) {
       address = new URL(address).host;
     }
   } catch {
-    // Keep original.
+    // keep original
   }
 
   const match = address.match(/^(\[[^\]]+\]|[^:/?#\s]+):(\d{1,5})$/);
   if (!match) return null;
 
   const port = Number(match[2]);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+
+  const lowered = address.toLowerCase();
+  if (
+    lowered.includes("raidmax.org:5000") ||
+    lowered.includes("iw4.zip") ||
+    lowered.includes("localhost:") ||
+    lowered.includes("127.0.0.1:")
+  ) {
     return null;
   }
 
@@ -142,7 +244,6 @@ function valueLooksT7(value) {
   if (value === null || value === undefined) return false;
 
   if (typeof value === "number") {
-    // BO3 Steam app id.
     return value === 311210;
   }
 
@@ -153,45 +254,16 @@ function valueLooksT7(value) {
     /\bbo3\b/.test(text) ||
     /black\s*ops\s*(3|iii)/.test(text) ||
     /blackops3/.test(text) ||
-    /call\s*of\s*duty.*black\s*ops\s*(3|iii)/.test(text)
+    /call\s*of\s*duty.*black\s*ops\s*(3|iii)/.test(text) ||
+    /\b311210\b/.test(text)
   );
 }
 
-function keyLooksT7(key) {
-  return valueLooksT7(key);
-}
-
-const gameMarkerFields = [
-  "game",
-  "gameName",
-  "game_name",
-  "gamename",
-  "app",
-  "appName",
-  "app_name",
-  "appid",
-  "appId",
-  "app_id",
-  "steam_appid",
-  "steamAppId",
-  "folder",
-  "platform",
-  "protocolName",
-  "protocol_name",
-  "client",
-  "clientName",
-  "client_name",
-  "network",
-  "mod",
-  "modName",
-  "mod_name"
-];
-
 function objectLooksT7(obj) {
-  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  if (!obj || typeof obj !== "object") return false;
 
-  for (const field of gameMarkerFields) {
-    if (Object.prototype.hasOwnProperty.call(obj, field) && valueLooksT7(obj[field])) {
+  for (const [key, value] of Object.entries(obj)) {
+    if (valueLooksT7(key) || valueLooksT7(value)) {
       return true;
     }
   }
@@ -222,41 +294,36 @@ function extractAddressFromObject(obj) {
     if (cleaned) return cleaned;
   }
 
+  const normalized = {};
+  for (const [key, value] of Object.entries(obj)) {
+    normalized[String(key).toLowerCase().replace(/[^a-z0-9]/g, "")] = value;
+  }
+
   const host =
-    obj.ip ||
-    obj.host ||
-    obj.hostname ||
-    obj.domain ||
-    obj.serverIp ||
-    obj.serverIP ||
-    obj.server_ip;
+    normalized.ip ||
+    normalized.host ||
+    normalized.hostname ||
+    normalized.domain ||
+    normalized.serverip ||
+    normalized.address;
 
   const port =
-    obj.port ||
-    obj.gamePort ||
-    obj.game_port ||
-    obj.queryPort ||
-    obj.query_port ||
-    obj.net_port;
+    normalized.port ||
+    normalized.gameport ||
+    normalized.queryport ||
+    normalized.netport;
 
   if (host && port) {
     return cleanAddress(`${String(host).trim()}:${Number(port)}`);
   }
 
-  return null;
-}
-
-function rememberSkip(value, reason) {
-  if (cachedRaidmaxSkipped.length >= 50) return;
-
-  let preview;
-  try {
-    preview = JSON.stringify(value).slice(0, 300);
-  } catch {
-    preview = String(value).slice(0, 300);
+  // Last resort: any value containing host:port.
+  for (const value of Object.values(obj)) {
+    const cleaned = cleanAddress(String(value));
+    if (cleaned) return cleaned;
   }
 
-  cachedRaidmaxSkipped.push({ reason, preview });
+  return null;
 }
 
 function collectT7Servers(value, out = [], contextIsT7 = false) {
@@ -266,8 +333,6 @@ function collectT7Servers(value, out = [], contextIsT7 = false) {
     const address = cleanAddress(value);
     if (address && contextIsT7) {
       out.push(address);
-    } else if (address) {
-      rememberSkip(value, "Skipped address because it had no T7/BO3 marker");
     }
     return out;
   }
@@ -280,20 +345,15 @@ function collectT7Servers(value, out = [], contextIsT7 = false) {
   }
 
   if (typeof value === "object") {
-    const thisObjectIsT7 = contextIsT7 || objectLooksT7(value);
+    const thisIsT7 = contextIsT7 || objectLooksT7(value);
     const address = extractAddressFromObject(value);
 
-    if (address) {
-      if (thisObjectIsT7) {
-        out.push(address);
-      } else {
-        rememberSkip(value, "Skipped server because its game marker was not T7/BO3/BOIII");
-      }
+    if (address && thisIsT7) {
+      out.push(address);
     }
 
     for (const [key, child] of Object.entries(value)) {
-      const childContextIsT7 = thisObjectIsT7 || keyLooksT7(key);
-      collectT7Servers(child, out, childContextIsT7);
+      collectT7Servers(child, out, thisIsT7 || valueLooksT7(key));
     }
   }
 
@@ -318,6 +378,179 @@ function dedupeServers(values) {
   return out;
 }
 
+function extractT7AddressesFromText(text) {
+  const out = [];
+  const regex = /(?:steam:\/\/connect\/)?(?:\[[0-9a-f:.]+\]|(?:[a-z0-9.-]+\.[a-z]{2,}|(?:\d{1,3}\.){3}\d{1,3})):\d{2,5}/gi;
+
+  let match;
+  while ((match = regex.exec(text))) {
+    const address = cleanAddress(match[0]);
+    if (!address) continue;
+
+    const start = Math.max(0, match.index - 650);
+    const end = Math.min(text.length, match.index + match[0].length + 650);
+    const context = text.slice(start, end);
+
+    if (valueLooksT7(context)) {
+      out.push(address);
+    }
+  }
+
+  return out;
+}
+
+function flattenPanels(panels, out = []) {
+  if (!Array.isArray(panels)) return out;
+
+  for (const panel of panels) {
+    if (!panel || typeof panel !== "object") continue;
+
+    if (Array.isArray(panel.panels)) {
+      flattenPanels(panel.panels, out);
+    } else {
+      out.push(panel);
+    }
+  }
+
+  return out;
+}
+
+function extractRowsFromGrafanaQueryResult(result) {
+  const rows = [];
+
+  const frames = [];
+
+  function findFrames(value) {
+    if (!value || typeof value !== "object") return;
+
+    if (Array.isArray(value)) {
+      for (const item of value) findFrames(item);
+      return;
+    }
+
+    if (value.schema && Array.isArray(value.schema.fields) && value.data && Array.isArray(value.data.values)) {
+      frames.push(value);
+      return;
+    }
+
+    for (const child of Object.values(value)) {
+      findFrames(child);
+    }
+  }
+
+  findFrames(result);
+
+  for (const frame of frames) {
+    const fields = frame.schema.fields || [];
+    const values = frame.data.values || [];
+    const rowCount = Math.max(0, ...values.map((col) => Array.isArray(col) ? col.length : 0));
+
+    for (let i = 0; i < rowCount; i++) {
+      const row = {};
+      for (let f = 0; f < fields.length; f++) {
+        const name = fields[f].name || fields[f].config?.displayName || `field_${f}`;
+        row[name] = Array.isArray(values[f]) ? values[f][i] : undefined;
+      }
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+async function tryGrafanaDashboardApi(grafana, debug) {
+  const dashboardApiUrl = `${grafana.origin}/api/dashboards/uid/${encodeURIComponent(grafana.uid)}`;
+  debug.grafanaDashboardApi = dashboardApiUrl;
+
+  const dashboardResponse = await fetchText(dashboardApiUrl, {
+    accept: "application/json"
+  });
+
+  const dashboardJson = tryJson(dashboardResponse.text);
+  if (!dashboardJson) {
+    debug.dashboardApiResult = "not json";
+    return [];
+  }
+
+  const dashboard = dashboardJson.dashboard || dashboardJson;
+  const panels = flattenPanels(dashboard.panels || []);
+  debug.grafanaPanelCount = panels.length;
+
+  const allServers = [];
+  const now = Date.now();
+  const from = now - 5 * 60 * 1000;
+
+  for (const panel of panels) {
+    const targets = Array.isArray(panel.targets) ? panel.targets : [];
+    if (!targets.length) continue;
+
+    const panelContextIsT7 = valueLooksT7(panel.title) || valueLooksT7(JSON.stringify(panel.fieldConfig || {}));
+
+    const queries = targets.map((target, index) => ({
+      ...target,
+      refId: target.refId || String.fromCharCode(65 + index),
+      datasource: target.datasource || panel.datasource || dashboard.templating?.list?.[0]?.datasource,
+      intervalMs: 30000,
+      maxDataPoints: 20000
+    }));
+
+    const body = JSON.stringify({
+      queries,
+      from: String(from),
+      to: String(now),
+      range: {
+        from: new Date(from).toISOString(),
+        to: new Date(now).toISOString(),
+        raw: {
+          from: "now-5m",
+          to: "now"
+        }
+      },
+      interval: "30s",
+      intervalMs: 30000,
+      maxDataPoints: 20000,
+      scopedVars: {},
+      dashboardUID: grafana.uid
+    });
+
+    try {
+      const queryResponse = await fetchText(`${grafana.origin}/api/ds/query`, {
+        method: "POST",
+        accept: "application/json",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Grafana-Org-Id": "1"
+        },
+        body,
+        timeoutMs: 12000
+      });
+
+      const queryJson = tryJson(queryResponse.text);
+      if (!queryJson) continue;
+
+      const rows = extractRowsFromGrafanaQueryResult(queryJson);
+      for (const row of rows) {
+        const address = extractAddressFromObject(row);
+        if (!address) continue;
+
+        if (panelContextIsT7 || objectLooksT7(row)) {
+          allServers.push(address);
+        }
+      }
+    } catch (error) {
+      debug.grafanaQueryErrors = debug.grafanaQueryErrors || [];
+      if (debug.grafanaQueryErrors.length < 5) {
+        debug.grafanaQueryErrors.push({
+          panel: panel.title || panel.id,
+          error: error.message || String(error)
+        });
+      }
+    }
+  }
+
+  return dedupeServers(allServers);
+}
+
 async function fetchRaidmaxT7Servers(force = false) {
   const now = Date.now();
 
@@ -325,47 +558,71 @@ async function fetchRaidmaxT7Servers(force = false) {
     return cachedRaidmaxServers;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-
-  cachedRaidmaxSkipped = [];
+  const debug = {
+    sourcePage: RAIDMAX_SERVERS_PAGE,
+    notes: []
+  };
 
   try {
-    const response = await fetch(RAIDMAX_URL, {
-      headers: {
-        "Accept": "application/json, text/plain;q=0.8, */*;q=0.5",
-        "User-Agent": "Swifly-T7-ServerList/1.0"
-      },
-      signal: controller.signal
-    });
+    const source = await fetchText(RAIDMAX_SERVERS_PAGE);
+    debug.finalSourceUrl = source.url;
+    debug.sourceContentType = source.headers.get("content-type") || "";
 
-    if (!response.ok) {
-      throw new Error(`RaidMax returned HTTP ${response.status}`);
+    let servers = [];
+
+    const json = tryJson(source.text);
+    if (json) {
+      debug.sourceType = "json";
+      servers = collectT7Servers(json);
+    } else {
+      debug.sourceType = "html";
+      servers.push(...extractT7AddressesFromText(source.text));
+
+      const iframeUrls = extractIframeUrls(source.text, source.url);
+      debug.iframeUrls = iframeUrls;
+
+      for (const iframeUrl of iframeUrls) {
+        const iframe = await fetchText(iframeUrl);
+        debug.fetchedIframeUrl = iframe.url;
+
+        servers.push(...extractT7AddressesFromText(iframe.text));
+
+        const grafana = parseGrafanaDashboardUrl(iframe.url);
+        debug.grafana = grafana;
+
+        if (grafana) {
+          try {
+            const grafanaServers = await tryGrafanaDashboardApi(grafana, debug);
+            servers.push(...grafanaServers);
+          } catch (error) {
+            debug.grafanaApiError = error.message || String(error);
+          }
+        }
+      }
     }
 
-    const text = await response.text();
-    let parsed;
-
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    }
-
-    cachedRaidmaxServers = dedupeServers(collectT7Servers(parsed));
+    cachedRaidmaxServers = dedupeServers(servers);
     cachedRaidmaxAt = now;
     cachedRaidmaxError = null;
+    cachedRaidmaxDebug = {
+      ...debug,
+      includedCount: cachedRaidmaxServers.length,
+      includedServers: cachedRaidmaxServers
+    };
 
     console.log(`RaidMax T7 servers loaded: ${cachedRaidmaxServers.length}`);
     return cachedRaidmaxServers;
   } catch (error) {
     cachedRaidmaxError = error.message || String(error);
-    console.warn(`RaidMax fetch failed: ${cachedRaidmaxError}`);
+    cachedRaidmaxDebug = {
+      ...debug,
+      error: cachedRaidmaxError,
+      includedCount: cachedRaidmaxServers.length,
+      includedServers: cachedRaidmaxServers
+    };
 
-    // Keep old cached T7 servers if RaidMax is temporarily down.
+    console.warn(`RaidMax fetch failed: ${cachedRaidmaxError}`);
     return cachedRaidmaxServers || [];
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -432,15 +689,12 @@ app.get("/servers.json", async (_req, res) => {
 });
 
 app.get("/raidmax.json", async (_req, res) => {
-  const servers = await fetchRaidmaxT7Servers(true);
+  await fetchRaidmaxT7Servers(true);
   res.setHeader("Cache-Control", "no-store");
   res.json({
-    url: RAIDMAX_URL,
-    mode: "T7_ONLY",
-    includedCount: servers.length,
+    mode: "HTML_IFRAME_GRAFANA_T7_ONLY",
     error: cachedRaidmaxError,
-    includedServers: servers,
-    skippedExamples: cachedRaidmaxSkipped
+    ...cachedRaidmaxDebug
   });
 });
 
@@ -454,11 +708,10 @@ app.get("/status", async (_req, res) => {
     serverList: "/servers.json",
     pinnedServers: PINNED_SERVERS,
     raidmax: {
-      url: RAIDMAX_URL,
-      mode: "T7_ONLY",
+      sourcePage: RAIDMAX_SERVERS_PAGE,
+      mode: "HTML_IFRAME_GRAFANA_T7_ONLY",
       cacheSeconds: RAIDMAX_CACHE_SECONDS,
       includedCount: raidmax.length,
-      skippedExampleCount: cachedRaidmaxSkipped.length,
       error: cachedRaidmaxError
     },
     totalServers: merged.length,
@@ -512,6 +765,6 @@ app.use((err, _req, res, _next) => {
 app.listen(PORT, HOST, () => {
   console.log(`client.swifly.net site listening on ${HOST}:${PORT}`);
   console.log(`Pinned servers: ${PINNED_SERVERS.join(", ")}`);
-  console.log(`RaidMax T7-only import: ${RAIDMAX_URL}`);
+  console.log(`RaidMax HTML/Grafana T7-only import: ${RAIDMAX_SERVERS_PAGE}`);
   console.log(`Serving updater files from ${BOIII_DIR}`);
 });
