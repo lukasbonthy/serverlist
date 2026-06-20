@@ -3,10 +3,10 @@
   "version": "2.0.0",
   "private": true,
   "description": "Render-ready Swifly server browser list and updater host.",
-  "main": "src/index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "npm run rebuild-manifest && node src/index.js",
-    "dev": "node src/index.js",
+    "start": "npm run rebuild-manifest && node server.js",
+    "dev": "node server.js",
     "rebuild-manifest": "node tools/rebuild-manifest.js"
   },
   "dependencies": {
