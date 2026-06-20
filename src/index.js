@@ -83,13 +83,21 @@ function getManifests() {
 }
 
 function sendManifest(res, manifest) {
-  res.setHeader("Cache-Control", "no-store");
+  // Always make the updater fetch the current manifest.
+  // The manifest is generated from the actual files on disk, so file size/hash
+  // changes are automatically reflected and will not create stale size mismatch errors.
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
   res.type("json").send(JSON.stringify(manifest, null, 2) + "\n");
 }
 
 function sendFileIfExists(res, filePath) {
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   res.sendFile(filePath);
   return true;
 }
@@ -848,13 +856,13 @@ app.get("/health", (_req, res) => {
 
 app.get("/servers.json", async (_req, res) => {
   const servers = await getMergedServers();
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.json({ servers });
 });
 
 app.get("/raidmax.json", async (_req, res) => {
   await fetchRaidmaxT7Servers(true);
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.json({
     mode: "GRAFANA_CONNECT_COLUMN_T7_ONLY",
     error: cachedRaidmaxError,
@@ -887,6 +895,36 @@ app.get("/status", async (_req, res) => {
   });
 });
 
+
+app.get("/manifest-debug.json", (_req, res) => {
+  const { main, beta } = getManifests();
+  const wanted = "data/ui_scripts/server_browser/__init__.lua";
+  const mainEntry = main.find((entry) => entry[0] === wanted) || null;
+  const betaEntry = beta.find((entry) => entry[0] === wanted) || null;
+
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.json({
+    ok: true,
+    note: "Manifest is generated live from public/boiii, so changed file sizes are automatically reflected.",
+    checkedFile: wanted,
+    mainEntry,
+    betaEntry,
+    mainFileCount: main.length,
+    betaFileCount: beta.length
+  });
+});
+
+app.get("/force-manifest-refresh", (_req, res) => {
+  const { main, beta } = getManifests();
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.json({
+    ok: true,
+    refreshed: true,
+    mainFileCount: main.length,
+    betaFileCount: beta.length
+  });
+});
+
 app.get("/boiii.json", (_req, res) => sendManifest(res, getManifests().main));
 app.get("/boiii-beta.json", (_req, res) => sendManifest(res, getManifests().beta));
 
@@ -908,7 +946,7 @@ app.use("/boiii", express.static(BOIII_DIR, {
   lastModified: true,
   maxAge: 0,
   setHeaders(res) {
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   }
 }));
 
