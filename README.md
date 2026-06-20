@@ -1,33 +1,34 @@
 # client.swifly.net
 
-This app does both jobs:
+This zip includes the actual updater manifests now.
 
-1. Server browser master server:
-   - Client asks UDP `client.swifly.net:20810`
-   - Master returns only `mp1.swifly.net:1154`
+## Client updater URLs
 
-2. Updater static host:
-   - `https://client.swifly.net/boiii.json`
-   - `https://client.swifly.net/boiii-beta.json`
-   - `https://client.swifly.net/boiii/<files>`
-   - `https://client.swifly.net/boiii/beta/<files>`
+The client should use:
 
-## Where to put updater files
+```txt
+https://client.swifly.net/boiii.json
+https://client.swifly.net/boiii-beta.json
+https://client.swifly.net/boiii/<files>
+https://client.swifly.net/boiii/beta/<files>
+```
 
-Put your manifests here:
+## Files already included
 
 ```txt
 public/boiii.json
 public/boiii-beta.json
 ```
 
-Put your main updater files here:
+## Add your updater files here
+
+Main/latest files:
 
 ```txt
 public/boiii/
 ```
 
-Put beta updater files here:
+Beta files:
 
 ```txt
 public/boiii/beta/
@@ -36,27 +37,46 @@ public/boiii/beta/
 Example:
 
 ```txt
-public/boiii.json
-public/boiii-beta.json
 public/boiii/boiii.exe
 public/boiii/ext.dll
 public/boiii/data/launcher/main.html
 public/boiii/beta/boiii.exe
 ```
 
-## Run
+## Regenerate manifest after adding files
+
+After you add/change files, run:
+
+```bash
+npm run manifest
+```
+
+That updates:
+
+```txt
+public/boiii.json
+public/boiii-beta.json
+```
+
+with the real sizes and SHA1 hashes.
+
+## Start
 
 ```bash
 npm start
 ```
 
-## VPS ports
-
-Open:
+## Ports
 
 ```txt
-UDP 20810
-TCP 3000
+TCP 3000   website/updater host
+UDP 20810  server browser master
 ```
 
-If using Nginx/Caddy, reverse proxy HTTPS traffic to TCP 3000.
+The server browser only returns:
+
+```txt
+mp1.swifly.net:1154
+```
+
+Important: if you upload different files than the manifest says, the updater will fail with a size/hash mismatch. Run `npm run manifest` after uploading files.

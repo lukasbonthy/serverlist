@@ -1,11 +1,12 @@
 {
-  "name": "client-swifly-net-server-list-updater",
-  "version": "1.1.0",
-  "description": "client.swifly.net server-list, UDP master server, and updater static host for Swifly.",
+  "name": "client-swifly-net",
+  "version": "1.2.0",
+  "description": "client.swifly.net server browser master and updater manifest host.",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "manifest": "node tools/generate-manifest.js"
   },
   "engines": {
     "node": ">=18"
