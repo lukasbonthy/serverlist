@@ -2,13 +2,17 @@
 
 const dgram = require('node:dgram');
 const dns = require('node:dns').promises;
+const fs = require('node:fs');
+const fsp = require('node:fs/promises');
 const http = require('node:http');
 const net = require('node:net');
+const path = require('node:path');
 
 const HOST = process.env.HOST || '0.0.0.0';
 const HTTP_PORT = Number(process.env.PORT || 3000);
 const MASTER_PORT = Number(process.env.MASTER_PORT || 20810);
 const PUBLIC_HOST = process.env.PUBLIC_HOST || 'client.swifly.net';
+const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const SERVERS = (process.env.SERVERS || 'mp1.swifly.net:1154')
   .split(',')
@@ -111,6 +115,67 @@ udp.bind(MASTER_PORT, HOST, () => {
   console.log(`[MASTER] Returning only: ${SERVERS.join(', ')}`);
 });
 
+function contentType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.json') return 'application/json; charset=utf-8';
+  if (ext === '.html') return 'text/html; charset=utf-8';
+  if (ext === '.css') return 'text/css; charset=utf-8';
+  if (ext === '.js') return 'application/javascript; charset=utf-8';
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.png') return 'image/png';
+  if (ext === '.dll' || ext === '.exe') return 'application/octet-stream';
+  if (ext === '.cfg' || ext === '.txt' || ext === '.lua' || ext === '.gsc') return 'text/plain; charset=utf-8';
+
+  return 'application/octet-stream';
+}
+
+function safePublicPath(urlPath) {
+  let decoded;
+
+  try {
+    decoded = decodeURIComponent(urlPath.split('?')[0]);
+  } catch {
+    return null;
+  }
+
+  const normalized = path.normalize(decoded).replace(/^(\.\.[/\\])+/, '');
+  const fullPath = path.join(PUBLIC_DIR, normalized);
+  const relative = path.relative(PUBLIC_DIR, fullPath);
+
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+
+  return fullPath;
+}
+
+async function serveStatic(req, res) {
+  const filePath = safePublicPath(req.url);
+
+  if (!filePath) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('bad path');
+    return true;
+  }
+
+  try {
+    const stat = await fsp.stat(filePath);
+    if (!stat.isFile()) return false;
+
+    res.writeHead(200, {
+      'Content-Type': contentType(filePath),
+      'Content-Length': stat.size,
+      'Cache-Control': 'no-store'
+    });
+
+    fs.createReadStream(filePath).pipe(res);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function htmlEscape(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -120,36 +185,14 @@ function htmlEscape(value) {
     .replaceAll("'", '&#039;');
 }
 
-const httpServer = http.createServer((req, res) => {
-  const payload = {
-    domain: PUBLIC_HOST,
-    clientMaster: `${PUBLIC_HOST}:${MASTER_PORT}`,
-    servers: SERVERS
-  };
-
-  if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('ok');
-    return;
-  }
-
-  if (req.url === '/servers.json') {
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(payload, null, 2));
-    return;
-  }
-
-  const server = htmlEscape(SERVERS[0] || 'none');
-
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(`<!doctype html>
+function renderHome() {
+  return `<!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Swifly Server List</title>
+  <title>Swifly Client Host</title>
   <style>
-    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -163,7 +206,7 @@ const httpServer = http.createServer((req, res) => {
         #05060a;
     }
     main {
-      width: min(860px, calc(100% - 32px));
+      width: min(920px, calc(100% - 32px));
       padding: 42px;
       border: 1px solid rgba(255,255,255,.13);
       border-radius: 30px;
@@ -188,18 +231,8 @@ const httpServer = http.createServer((req, res) => {
       line-height: .88;
       letter-spacing: -.08em;
     }
-    p {
-      color: #aab2ce;
-      line-height: 1.65;
-      font-size: 18px;
-      max-width: 680px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 28px;
-    }
+    p { color: #aab2ce; line-height: 1.65; font-size: 18px; max-width: 740px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
     .box {
       padding: 18px;
       border-radius: 18px;
@@ -226,32 +259,73 @@ const httpServer = http.createServer((req, res) => {
       font-family: Consolas, monospace;
       font-size: 14px;
     }
-    @media (max-width: 700px) {
-      main { padding: 28px; }
-      .grid { grid-template-columns: 1fr; }
-    }
+    a { color: #cbd4ff; text-decoration: none; }
+    @media (max-width: 700px) { main { padding: 28px; } .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <main>
-    <div class="pill">Swifly Master Server</div>
-    <h1>Server List</h1>
-    <p>The Swifly client gets its server browser list from this domain over UDP.</p>
+    <div class="pill">Swifly Client Host</div>
+    <h1>client.swifly.net</h1>
+    <p>This host serves both the Swifly server browser master and updater files.</p>
     <div class="grid">
       <div class="box">
-        <div class="label">Client master</div>
+        <div class="label">Server browser master</div>
         <code>${htmlEscape(PUBLIC_HOST)}:${MASTER_PORT}</code>
       </div>
       <div class="box">
         <div class="label">Only listed server</div>
-        <code>${server}</code>
+        <code>${htmlEscape(SERVERS.join(', '))}</code>
+      </div>
+      <div class="box">
+        <div class="label">Main manifest</div>
+        <code>https://${htmlEscape(PUBLIC_HOST)}/boiii.json</code>
+      </div>
+      <div class="box">
+        <div class="label">Beta manifest</div>
+        <code>https://${htmlEscape(PUBLIC_HOST)}/boiii-beta.json</code>
       </div>
     </div>
+    <p>Status: <a href="/servers.json">/servers.json</a> · <a href="/health">/health</a></p>
   </main>
 </body>
-</html>`);
+</html>`;
+}
+
+const httpServer = http.createServer(async (req, res) => {
+  if (req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('ok');
+    return;
+  }
+
+  if (req.url === '/servers.json') {
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({
+      domain: PUBLIC_HOST,
+      clientMaster: `${PUBLIC_HOST}:${MASTER_PORT}`,
+      updateManifest: `https://${PUBLIC_HOST}/boiii.json`,
+      betaUpdateManifest: `https://${PUBLIC_HOST}/boiii-beta.json`,
+      servers: SERVERS
+    }, null, 2));
+    return;
+  }
+
+  if (req.url !== '/' && await serveStatic(req, res)) {
+    return;
+  }
+
+  if (req.url !== '/') {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('not found');
+    return;
+  }
+
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(renderHome());
 });
 
 httpServer.listen(HTTP_PORT, HOST, () => {
-  console.log(`[HTTP] Site listening on http://${HOST}:${HTTP_PORT}`);
+  console.log(`[HTTP] Site/static updater host listening on http://${HOST}:${HTTP_PORT}`);
+  console.log(`[HTTP] Put updater files in: ${PUBLIC_DIR}`);
 });

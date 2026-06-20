@@ -1,17 +1,47 @@
-# client.swifly.net Server List
+# client.swifly.net
 
-This is the Node.js server-list site for Swifly.
+This app does both jobs:
 
-The client should use:
+1. Server browser master server:
+   - Client asks UDP `client.swifly.net:20810`
+   - Master returns only `mp1.swifly.net:1154`
+
+2. Updater static host:
+   - `https://client.swifly.net/boiii.json`
+   - `https://client.swifly.net/boiii-beta.json`
+   - `https://client.swifly.net/boiii/<files>`
+   - `https://client.swifly.net/boiii/beta/<files>`
+
+## Where to put updater files
+
+Put your manifests here:
 
 ```txt
-client.swifly.net:20810
+public/boiii.json
+public/boiii-beta.json
 ```
 
-This master server only returns:
+Put your main updater files here:
 
 ```txt
-mp1.swifly.net:1154
+public/boiii/
+```
+
+Put beta updater files here:
+
+```txt
+public/boiii/beta/
+```
+
+Example:
+
+```txt
+public/boiii.json
+public/boiii-beta.json
+public/boiii/boiii.exe
+public/boiii/ext.dll
+public/boiii/data/launcher/main.html
+public/boiii/beta/boiii.exe
 ```
 
 ## Run
@@ -20,9 +50,7 @@ mp1.swifly.net:1154
 npm start
 ```
 
-## Production
-
-Point `client.swifly.net` to the VPS running this.
+## VPS ports
 
 Open:
 
@@ -31,5 +59,4 @@ UDP 20810
 TCP 3000
 ```
 
-The website runs on TCP `3000`.
-The actual in-game server browser uses UDP `20810`.
+If using Nginx/Caddy, reverse proxy HTTPS traffic to TCP 3000.
