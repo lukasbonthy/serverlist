@@ -15,6 +15,7 @@ local skullSortAscending = nil
 local activeServerList = nil
 
 local CUSTOM_TYPE_ALL = 100
+local CUSTOM_TYPE_MULTIPLAYER = 103
 local CUSTOM_TYPE_CAMPAIGN = 101
 local CUSTOM_TYPE_ZOMBIES = 102
 
@@ -28,7 +29,7 @@ local customActiveFilters = {}
 local customActiveAttributes = {}
 
 local function isCustomTab()
-  return currentCustomMode == "all" or currentCustomMode == "cp" or currentCustomMode == "zm"
+  return currentCustomMode == "all" or currentCustomMode == "mp" or currentCustomMode == "cp" or currentCustomMode == "zm"
 end
 
 local function isValidServer(info)
@@ -39,6 +40,92 @@ local function isValidServer(info)
     return false
   end
   return true
+end
+
+local PINNED_SERVER_ADDR = "mp1.swifly.net:1154"
+local PINNED_SERVER_PORT = ":1154"
+local PINNED_SERVER_NAME = "swifly"
+
+local function swiflyLower(value)
+  return string.lower(value or "")
+end
+
+local function swiflyEndsWith(value, suffix)
+  value = value or ""
+  suffix = suffix or ""
+  if #suffix == 0 then
+    return true
+  end
+  return string.sub(value, -#suffix) == suffix
+end
+
+local function isPinnedServerInfo(info)
+  if not info then
+    return false
+  end
+
+  local addr = swiflyLower(info.connectAddr or "")
+  local name = swiflyLower(info.name or "")
+
+  if addr == PINNED_SERVER_ADDR then
+    return true
+  end
+
+  -- The engine may show the resolved IP instead of mp1.swifly.net,
+  -- so also match the unique Swifly game port.
+  if swiflyEndsWith(addr, PINNED_SERVER_PORT) then
+    return true
+  end
+
+  -- Fallback if the server name contains Swifly.
+  if string.find(name, PINNED_SERVER_NAME, 1, true) then
+    return true
+  end
+
+  return false
+end
+
+local function findPinnedRawIndex()
+  local rawCount = game.getrawservercount()
+  for i = 0, rawCount - 1 do
+    local info = game.getrawserverinfo(i)
+    if isValidServer(info) and isPinnedServerInfo(info) then
+      return i
+    end
+  end
+  return nil
+end
+
+local function forcePinnedIndexTableToTop(indexTable)
+  if not indexTable then
+    return
+  end
+
+  local pinnedIndex = nil
+
+  -- If the pinned server is already in this list, remove it from wherever
+  -- sorting/filtering placed it.
+  for pos, idx in ipairs(indexTable) do
+    local info = game.getrawserverinfo(idx)
+    if isPinnedServerInfo(info) then
+      pinnedIndex = idx
+      table.remove(indexTable, pos)
+      break
+    end
+  end
+
+  -- If a filter/mode removed it, force it back into the visible list.
+  if not pinnedIndex then
+    pinnedIndex = findPinnedRawIndex()
+  end
+
+  if pinnedIndex then
+    table.insert(indexTable, 1, pinnedIndex)
+  end
+end
+
+local function forcePinnedServerToTop()
+  forcePinnedIndexTableToTop(filteredServerIndices)
 end
 
 local currentSortType = nil
@@ -121,6 +208,8 @@ local function sortFilteredIndices(sortType)
       return va > vb
     end
   end)
+
+  forcePinnedServerToTop()
 end
 
 local function rebuildAddressMap()
@@ -217,13 +306,15 @@ local function rebuildFilteredIndices()
       local modeOk = false
       if currentCustomMode == "all" then
         modeOk = true
+      elseif currentCustomMode == "mp" then
+        modeOk = (info.zombies ~= true and not (info.campaign and info.campaign == 1))
       elseif currentCustomMode == "zm" then
         modeOk = (info.zombies == true)
       elseif currentCustomMode == "cp" then
         modeOk = (info.campaign and info.campaign == 1)
       end
 
-      if modeOk and passesCustomFilters(info) then
+      if (modeOk and passesCustomFilters(info)) or isPinnedServerInfo(info) then
         table.insert(filteredServerIndices, i)
       end
     end
@@ -231,6 +322,8 @@ local function rebuildFilteredIndices()
 
   if currentSortType then
     sortFilteredIndices(currentSortType)
+  else
+    forcePinnedServerToTop()
   end
 
   return #filteredServerIndices
@@ -264,6 +357,9 @@ if SB.RequestServers then
     local ok, err
     if serverType == CUSTOM_TYPE_ALL then
       currentCustomMode = "all"
+      ok, err = pcall(SB.RequestServers, Enum.SteamServerRequestType.STEAM_SERVER_REQUEST_TYPE_INTERNET)
+    elseif serverType == CUSTOM_TYPE_MULTIPLAYER then
+      currentCustomMode = "mp"
       ok, err = pcall(SB.RequestServers, Enum.SteamServerRequestType.STEAM_SERVER_REQUEST_TYPE_INTERNET)
     elseif serverType == CUSTOM_TYPE_CAMPAIGN then
       currentCustomMode = "cp"
@@ -397,7 +493,7 @@ DataSources.ServerBrowserCategories = ListHelper_SetupDataSource("ServerBrowserC
   table.insert(tabs, {
     models = {
       tabName = "MENU_MULTIPLAYER_CAPS",
-      serverType = Enum.SteamServerRequestType.STEAM_SERVER_REQUEST_TYPE_INTERNET,
+      serverType = CUSTOM_TYPE_MULTIPLAYER,
     },
   })
 
@@ -1062,6 +1158,7 @@ if SB.HeaderNew then
           for i, entry in ipairs(entries) do
             skullSortedOrder[i] = entry.idx
           end
+          forcePinnedIndexTableToTop(skullSortedOrder)
 
           if activeServerList then
             activeServerList:updateDataSource(false, false)
