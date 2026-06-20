@@ -1,104 +1,56 @@
-# client.swifly.net Render Site
+# client.swifly.net Render Site — T7 Only
 
-This is the updated Render-ready site for the patched Swifly client.
+No Render env vars needed.
 
-It serves three things:
+Use:
 
-## 1. Server browser list
+```txt
+Build Command: npm install
+Start Command: npm start
+```
 
-The patched client now reads:
+The patched Swifly client reads:
 
 ```txt
 https://client.swifly.net/servers.json
 ```
 
-This site returns only:
-
-```json
-{
-  "servers": ["mp1.swifly.net:1154"]
-}
-```
-
-## 2. Updater manifest
-
-The updater reads:
+This site returns:
 
 ```txt
-https://client.swifly.net/boiii.json
-https://client.swifly.net/boiii-beta.json
+mp1.swifly.net:1154
++
+ONLY RaidMax servers that are marked as T7 / BO3 / BOIII
 ```
 
-These manifests are generated automatically from files inside:
+It fetches RaidMax from:
+
+```txt
+http://api.raidmax.org:5000/servers
+```
+
+Non-T7 servers from RaidMax are skipped.
+
+## Test after deploy
+
+```txt
+https://client.swifly.net/servers.json
+https://client.swifly.net/raidmax.json
+https://client.swifly.net/status
+```
+
+`/raidmax.json` shows which servers were included and examples of skipped entries.
+
+## Updater files
+
+Updater files go here:
 
 ```txt
 public/boiii
-public/boiii/beta
 ```
 
-## 3. Updater files
-
-Main/latest files are served from:
-
-```txt
-https://client.swifly.net/boiii/<file>
-```
-
-Beta files are served from:
-
-```txt
-https://client.swifly.net/boiii/beta/<file>
-```
-
-If `public/boiii/beta` is empty, `/boiii-beta.json` falls back to the main manifest, and `/boiii/beta/<file>` falls back to `/boiii/<file>`.
-
-## Where to put the data folder
-
-Put it here:
+The data folder goes here:
 
 ```txt
 public/boiii/data
 ```
-
-Example:
-
-```txt
-public/boiii/data/lookup_tables/hash_names.txt
-public/boiii/data/ui_scripts/server_browser/__init__.lua
-public/boiii/ext.dll
-public/boiii/boiii.exe
-```
-
-## Render settings
-
-Build command:
-
-```txt
-npm install
-```
-
-Start command:
-
-```txt
-npm start
-```
-
-Environment variable:
-
-```txt
-SERVERS=mp1.swifly.net:1154
-PUBLIC_HOST=client.swifly.net
-```
-
-## Test URLs
-
-After deploy, these should work:
-
-```txt
-https://client.swifly.net/servers.json
-https://client.swifly.net/boiii.json
-https://client.swifly.net/boiii-beta.json
-https://client.swifly.net/boiii/data/lookup_tables/hash_names.txt
-```
-
-No UDP is needed for Render anymore because the patched client uses HTTPS `/servers.json`.

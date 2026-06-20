@@ -5,12 +5,3 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 20
-      - key: PUBLIC_HOST
-        value: client.swifly.net
-      - key: SERVERS
-        value: mp1.swifly.net:1154
-      - key: CACHE_SECONDS
-        value: 0
