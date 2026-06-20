@@ -1,1 +1,0 @@
-Put main/latest updater files here. Then run: npm run manifest

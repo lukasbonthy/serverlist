@@ -1,50 +1,104 @@
-# Swifly Manifest Fix
+# client.swifly.net Render Site
 
-The old manifest generator was accidentally skipping `.txt` files.
+This is the updated Render-ready site for the patched Swifly client.
 
-That breaks files like:
+It serves three things:
 
-```txt
-data/lookup_tables/hash_names.txt
-data/lookup_tables/dvar_list.txt
-```
+## 1. Server browser list
 
-## Fix your current server
-
-Copy this file:
+The patched client now reads:
 
 ```txt
-tools/generate-manifest.js
+https://client.swifly.net/servers.json
 ```
 
-into your existing `client-swifly-net-with-manifests/tools/` folder, replacing the old one.
+This site returns only:
 
-Then run this inside your existing `client-swifly-net-with-manifests` folder:
-
-```bash
-npm run manifest
+```json
+{
+  "servers": ["mp1.swifly.net:1154"]
+}
 ```
 
-Then restart your Node app:
+## 2. Updater manifest
 
-```bash
-pkill node
+The updater reads:
+
+```txt
+https://client.swifly.net/boiii.json
+https://client.swifly.net/boiii-beta.json
+```
+
+These manifests are generated automatically from files inside:
+
+```txt
+public/boiii
+public/boiii/beta
+```
+
+## 3. Updater files
+
+Main/latest files are served from:
+
+```txt
+https://client.swifly.net/boiii/<file>
+```
+
+Beta files are served from:
+
+```txt
+https://client.swifly.net/boiii/beta/<file>
+```
+
+If `public/boiii/beta` is empty, `/boiii-beta.json` falls back to the main manifest, and `/boiii/beta/<file>` falls back to `/boiii/<file>`.
+
+## Where to put the data folder
+
+Put it here:
+
+```txt
+public/boiii/data
+```
+
+Example:
+
+```txt
+public/boiii/data/lookup_tables/hash_names.txt
+public/boiii/data/ui_scripts/server_browser/__init__.lua
+public/boiii/ext.dll
+public/boiii/boiii.exe
+```
+
+## Render settings
+
+Build command:
+
+```txt
+npm install
+```
+
+Start command:
+
+```txt
 npm start
 ```
 
-or if using PM2:
+Environment variable:
 
-```bash
-pm2 restart all
+```txt
+SERVERS=mp1.swifly.net:1154
+PUBLIC_HOST=client.swifly.net
 ```
 
-## Verify
+## Test URLs
 
-Run:
+After deploy, these should work:
 
-```bash
-grep hash_names public/boiii.json
-curl -s https://client.swifly.net/boiii.json | grep hash_names
+```txt
+https://client.swifly.net/servers.json
+https://client.swifly.net/boiii.json
+https://client.swifly.net/boiii-beta.json
+https://client.swifly.net/boiii/data/lookup_tables/hash_names.txt
 ```
 
-Both should show the same file size and hash.
+No UDP is needed for Render anymore because the patched client uses HTTPS `/servers.json`.

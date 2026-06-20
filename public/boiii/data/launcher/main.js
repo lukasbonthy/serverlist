@@ -133,7 +133,7 @@ function fixMojibake(str) {
   if (!str)
     return '';
   // Detect mojibake: UTF-8 bytes misinterpreted as Latin-1/Windows-1252
-  // Common pattern: multi-byte sequences like Ã¢, Ã©, â˜…, â™¦ etc.
+  // Common pattern: multi-byte sequences like ÃƒÂ¢, ÃƒÂ©, Ã¢Ëœâ€¦, Ã¢â„¢Â¦ etc.
   if (/[\xC0-\xDF][\x80-\xBF]|[\xE0-\xEF][\x80-\xBF]{2}|[\xF0-\xF7][\x80-\xBF]{3}/
           .test(str)) {
     try {
@@ -2394,7 +2394,7 @@ function showVerifyResults(changedFiles, message) {
   verifyResults.classList.add('active');
   if (!changedFiles || changedFiles.length === 0) {
     verifyResults.innerHTML =
-        '<div class="verify-results-ok">&#10004; All files verified — no changes detected.</div>';
+        '<div class="verify-results-ok">&#10004; All files verified â€” no changes detected.</div>';
   } else {
     var html =
         '<div style="color:rgba(249,115,22,0.9);font-size:0.78rem;font-weight:600;margin-bottom:7px;">' +
@@ -3496,14 +3496,6 @@ function selectVersion(value, label) {
   }
   if (versionDropdown)
     versionDropdown.className = 'version-selector-container';
-
-  try {
-    var ex = getExternal();
-    if (ex && ex.setSelectedVersion) {
-      ex.setSelectedVersion(value);
-    }
-  } catch (e) {
-  }
 }
 
 function addVersionOption(value, label) {
@@ -3554,20 +3546,11 @@ document.addEventListener('click', function(e) {
   }
 });
 
-try {
-  var sv = getExternal() && getExternal().getSelectedVersion &&
-           getExternal().getSelectedVersion();
-  if (sv) {
-    _selectedVersion = sv;
-  }
-} catch (e) {
-}
-
 function fetchReleases() {
   if (!versionOptions)
     return;
 
-  var url = 'https://api.github.com/repos/Ezz-lol/boiii-free/releases';
+  var url = 'https://api.github.com/repos/Swifly-lol/boiii-free/releases';
   var xhr = new XMLHttpRequest();
   xhr.open('GET', url, true);
   xhr.onreadystatechange = function() {
@@ -3598,14 +3581,6 @@ function fetchReleases() {
             }
           }
         }
-        // After loading all versions, ensure UI reflects saved selection
-        var label = 'Latest (Auto-update)';
-        if (_selectedVersion === 'beta')
-          label = 'Beta (Experimental)';
-        else if (_selectedVersion !== 'latest' &&
-                 _versionsData[_selectedVersion])
-          label = _selectedVersion;
-        selectVersion(_selectedVersion, label);
       } catch (e) {
         console.error('Error parsing releases:', e);
       }
@@ -3618,26 +3593,10 @@ function fetchReleases() {
 
 fetchReleases();
 
-// Beta build
+// Beta build - placeholder URL (update when R2 bucket is configured)
 _versionsData['beta'] = {
-  url : 'https://r2.ezz.lol/boiii/beta/boiii.exe',
+  url : 'https://swifly-servers.onrender.com/disabled-cdn/boiii/beta/boiii.exe',
   name : 'boiii-beta.exe'
 };
 addVersionOption('beta', 'Beta (Experimental)');
-
-var creditsPopup = document.getElementById('creditsPopup');
-var versionDisplay = document.getElementById('versionDisplay');
-if (versionDisplay && creditsPopup) {
-  versionDisplay.onclick = function() { creditsPopup.classList.add('active'); };
-  var creditsClose = creditsPopup.querySelector('.popup-close');
-  if (creditsClose) {
-    creditsClose.onclick =
-        function() { creditsPopup.classList.remove('active'); };
-  }
-  creditsPopup.onclick = function(e) {
-    if (e.target === creditsPopup) {
-      creditsPopup.classList.remove('active');
-    }
-  };
-}
 })();

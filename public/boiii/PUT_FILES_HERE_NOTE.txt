@@ -1,0 +1,2 @@
+Put updater files here. The app generates /boiii.json automatically.
+The server browser list is served from /servers.json.

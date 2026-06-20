@@ -1,15 +1,20 @@
 {
-  "name": "client-swifly-net",
-  "version": "1.2.0",
-  "description": "client.swifly.net server browser master and updater manifest host.",
-  "main": "server.js",
-  "type": "commonjs",
+  "name": "client-swifly-net-render",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Render-ready Swifly server browser list and updater host.",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
-    "manifest": "node tools/generate-manifest.js"
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0"
   },
   "engines": {
     "node": ">=18"
-  },
-  "license": "UNLICENSED"
+  }
 }
