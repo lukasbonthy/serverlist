@@ -236,9 +236,60 @@ function objectLooksT7(obj) {
   return false;
 }
 
+function normalizeKey(key) {
+  return String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function isWebfrontKey(key) {
+  const normalized = normalizeKey(key);
+  return (
+    normalized.includes("webfront") ||
+    normalized.includes("website") ||
+    normalized.includes("web") ||
+    normalized.includes("url") ||
+    normalized.includes("link")
+  );
+}
+
+function isConnectKey(key) {
+  const normalized = normalizeKey(key);
+  return (
+    normalized === "connect" ||
+    normalized.includes("connectaddr") ||
+    normalized.includes("connectaddress") ||
+    normalized.includes("join") ||
+    normalized.includes("endpoint")
+  );
+}
+
+function cleanConnectAddress(value) {
+  if (typeof value !== "string") return null;
+
+  let address = value.trim();
+  address = address.replace(/^steam:\/\/connect\//i, "");
+  address = address.replace(/^\/connect\//i, "");
+
+  // Do NOT turn webfront URLs into game servers. A value like
+  // https://88.198.34.154:1624 is the admin webfront, not the BO3 connect port.
+  if (/^https?:\/\//i.test(address)) {
+    return null;
+  }
+
+  return cleanAddress(address);
+}
+
 function extractAddressFromObject(obj) {
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
 
+  // 1. Prefer the actual Grafana/table Connect column.
+  for (const [key, value] of Object.entries(obj)) {
+    if (!isConnectKey(key)) continue;
+
+    const cleaned = cleanConnectAddress(String(value));
+    if (cleaned) return cleaned;
+  }
+
+  // 2. Prefer direct known game-address fields, but never Webfront/URL fields.
   const directFields = [
     "address", "addr", "connectAddr", "connectAddress", "endpoint",
     "ip_port", "ipPort", "hostport", "hostPort", "server",
@@ -246,13 +297,16 @@ function extractAddressFromObject(obj) {
   ];
 
   for (const field of directFields) {
-    const cleaned = cleanAddress(obj[field]);
+    if (isWebfrontKey(field)) continue;
+
+    const cleaned = cleanConnectAddress(String(obj[field] ?? ""));
     if (cleaned) return cleaned;
   }
 
+  // 3. Host + game port style rows.
   const normalized = {};
   for (const [key, value] of Object.entries(obj)) {
-    normalized[String(key).toLowerCase().replace(/[^a-z0-9]/g, "")] = value;
+    normalized[normalizeKey(key)] = value;
   }
 
   const host =
@@ -260,19 +314,25 @@ function extractAddressFromObject(obj) {
     normalized.host ||
     normalized.hostname ||
     normalized.domain ||
-    normalized.serverip ||
-    normalized.address;
+    normalized.serverip;
 
   const port =
-    normalized.port ||
+    normalized.connectport ||
     normalized.gameport ||
+    normalized.port ||
     normalized.queryport ||
     normalized.netport;
 
-  if (host && port) return cleanAddress(`${String(host).trim()}:${Number(port)}`);
+  if (host && port) {
+    const cleaned = cleanConnectAddress(`${String(host).trim()}:${Number(port)}`);
+    if (cleaned) return cleaned;
+  }
 
-  for (const value of Object.values(obj)) {
-    const cleaned = cleanAddress(String(value));
+  // 4. Last resort: use a non-webfront host:port value from the row.
+  for (const [key, value] of Object.entries(obj)) {
+    if (isWebfrontKey(key)) continue;
+
+    const cleaned = cleanConnectAddress(String(value));
     if (cleaned) return cleaned;
   }
 
@@ -796,7 +856,7 @@ app.get("/raidmax.json", async (_req, res) => {
   await fetchRaidmaxT7Servers(true);
   res.setHeader("Cache-Control", "no-store");
   res.json({
-    mode: "GRAFANA_DATASOURCE_RESOLVER_T7_ONLY",
+    mode: "GRAFANA_CONNECT_COLUMN_T7_ONLY",
     error: cachedRaidmaxError,
     ...cachedRaidmaxDebug
   });
@@ -813,7 +873,7 @@ app.get("/status", async (_req, res) => {
     pinnedServers: PINNED_SERVERS,
     raidmax: {
       sourcePage: RAIDMAX_SERVERS_PAGE,
-      mode: "GRAFANA_DATASOURCE_RESOLVER_T7_ONLY",
+      mode: "GRAFANA_CONNECT_COLUMN_T7_ONLY",
       cacheSeconds: RAIDMAX_CACHE_SECONDS,
       includedCount: raidmax.length,
       error: cachedRaidmaxError
@@ -861,6 +921,6 @@ app.use((err, _req, res, _next) => {
 app.listen(PORT, HOST, () => {
   console.log(`client.swifly.net site listening on ${HOST}:${PORT}`);
   console.log(`Pinned servers: ${PINNED_SERVERS.join(", ")}`);
-  console.log(`RaidMax datasource resolver import: ${RAIDMAX_SERVERS_PAGE}`);
+  console.log(`RaidMax Connect-column import: ${RAIDMAX_SERVERS_PAGE}`);
   console.log(`Serving updater files from ${BOIII_DIR}`);
 });

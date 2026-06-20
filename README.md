@@ -1,4 +1,4 @@
-# client.swifly.net Render Site — RaidMax datasource resolver
+# client.swifly.net Render Site — RaidMax Connect Column Fix
 
 No Render env vars needed.
 
@@ -9,7 +9,26 @@ Build Command: npm install
 Start Command: npm start
 ```
 
-This version fixes the Grafana `Data source not found` problem by resolving Grafana datasource variables before calling `/api/ds/query`.
+This version fixes the big issue from the RaidMax/Grafana table:
+
+```txt
+Webfront = admin website address
+Connect = real game server address
+```
+
+The old zip accidentally grabbed Webfront addresses like:
+
+```txt
+88.198.34.154:1624
+```
+
+But the client needs Connect addresses like:
+
+```txt
+88.198.34.154:28094
+```
+
+This version prefers the `Connect` column and avoids `Webfront`, `URL`, `Website`, and `Link` fields.
 
 The patched Swifly client reads:
 
@@ -25,24 +44,4 @@ https://client.swifly.net/raidmax.json
 https://client.swifly.net/status
 ```
 
-If it still imports 0, paste the full `/raidmax.json` again, especially:
-
-```txt
-datasources
-dashboardVariables
-unresolvedDatasources
-panelRows
-grafanaQueryErrors
-```
-
-Updater files go here:
-
-```txt
-public/boiii
-```
-
-The data folder goes here:
-
-```txt
-public/boiii/data
-```
+If something still looks off, check `/raidmax.json` and look at `panelRows.sampleRow`.
