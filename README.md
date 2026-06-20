@@ -1,82 +1,50 @@
-# client.swifly.net
+# Swifly Manifest Fix
 
-This zip includes the actual updater manifests now.
+The old manifest generator was accidentally skipping `.txt` files.
 
-## Client updater URLs
-
-The client should use:
+That breaks files like:
 
 ```txt
-https://client.swifly.net/boiii.json
-https://client.swifly.net/boiii-beta.json
-https://client.swifly.net/boiii/<files>
-https://client.swifly.net/boiii/beta/<files>
+data/lookup_tables/hash_names.txt
+data/lookup_tables/dvar_list.txt
 ```
 
-## Files already included
+## Fix your current server
+
+Copy this file:
 
 ```txt
-public/boiii.json
-public/boiii-beta.json
+tools/generate-manifest.js
 ```
 
-## Add your updater files here
+into your existing `client-swifly-net-with-manifests/tools/` folder, replacing the old one.
 
-Main/latest files:
-
-```txt
-public/boiii/
-```
-
-Beta files:
-
-```txt
-public/boiii/beta/
-```
-
-Example:
-
-```txt
-public/boiii/boiii.exe
-public/boiii/ext.dll
-public/boiii/data/launcher/main.html
-public/boiii/beta/boiii.exe
-```
-
-## Regenerate manifest after adding files
-
-After you add/change files, run:
+Then run this inside your existing `client-swifly-net-with-manifests` folder:
 
 ```bash
 npm run manifest
 ```
 
-That updates:
-
-```txt
-public/boiii.json
-public/boiii-beta.json
-```
-
-with the real sizes and SHA1 hashes.
-
-## Start
+Then restart your Node app:
 
 ```bash
+pkill node
 npm start
 ```
 
-## Ports
+or if using PM2:
 
-```txt
-TCP 3000   website/updater host
-UDP 20810  server browser master
+```bash
+pm2 restart all
 ```
 
-The server browser only returns:
+## Verify
 
-```txt
-mp1.swifly.net:1154
+Run:
+
+```bash
+grep hash_names public/boiii.json
+curl -s https://client.swifly.net/boiii.json | grep hash_names
 ```
 
-Important: if you upload different files than the manifest says, the updater will fail with a size/hash mismatch. Run `npm run manifest` after uploading files.
+Both should show the same file size and hash.

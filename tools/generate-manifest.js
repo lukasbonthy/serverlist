@@ -9,9 +9,16 @@ const publicDir = path.join(root, 'public');
 const mainDir = path.join(publicDir, 'boiii');
 const betaDir = path.join(publicDir, 'boiii', 'beta');
 
-async function exists(p) {
+const ignoredNames = new Set([
+  '.gitkeep',
+  'PUT_MAIN_UPDATE_FILES_HERE.txt',
+  'PUT_BETA_UPDATE_FILES_HERE.txt',
+  'README_PUT_UPDATER_FILES_HERE.txt'
+]);
+
+async function exists(filePath) {
   try {
-    await fs.access(p);
+    await fs.access(filePath);
     return true;
   } catch {
     return false;
@@ -19,56 +26,82 @@ async function exists(p) {
 }
 
 async function walk(dir, base, options = {}) {
-  if (!(await exists(dir))) return [];
+  if (!(await exists(dir))) {
+    return [];
+  }
 
-  const out = [];
+  const files = [];
   const entries = await fs.readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (entry.name === '.gitkeep' || entry.name.endsWith('.txt')) continue;
+    if (ignoredNames.has(entry.name)) {
+      continue;
+    }
 
-    const full = path.join(dir, entry.name);
-    const rel = path.relative(base, full).replaceAll(path.sep, '/');
+    const fullPath = path.join(dir, entry.name);
+    const relativePath = path.relative(base, fullPath).replaceAll(path.sep, '/');
 
-    if (options.excludePrefix && rel.startsWith(options.excludePrefix)) continue;
+    if (options.excludePrefix && relativePath.startsWith(options.excludePrefix)) {
+      continue;
+    }
 
     if (entry.isDirectory()) {
-      out.push(...await walk(full, base, options));
+      files.push(...await walk(fullPath, base, options));
     } else if (entry.isFile()) {
-      out.push(rel);
+      files.push(relativePath);
     }
   }
 
-  return out.sort();
+  return files.sort();
 }
 
-async function sha1(file) {
-  const data = await fs.readFile(file);
+async function sha1(filePath) {
+  const data = await fs.readFile(filePath);
   return crypto.createHash('sha1').update(data).digest('hex').toUpperCase();
 }
 
-async function buildManifest(dir, options = {}) {
-  const files = await walk(dir, dir, options);
+async function buildManifest(baseDir, options = {}) {
+  const files = await walk(baseDir, baseDir, options);
   const manifest = [];
 
-  for (const rel of files) {
-    const full = path.join(dir, rel);
-    const stat = await fs.stat(full);
-    manifest.push([rel, stat.size, await sha1(full)]);
+  for (const relativePath of files) {
+    const fullPath = path.join(baseDir, relativePath);
+    const stat = await fs.stat(fullPath);
+    manifest.push([relativePath, stat.size, await sha1(fullPath)]);
   }
 
   return manifest;
 }
 
 async function main() {
-  const mainManifest = await buildManifest(mainDir, { excludePrefix: 'beta/' });
+  const mainManifest = await buildManifest(mainDir, {
+    excludePrefix: 'beta/'
+  });
+
   const betaManifest = await buildManifest(betaDir);
 
-  await fs.writeFile(path.join(publicDir, 'boiii.json'), JSON.stringify(mainManifest, null, 2) + '\n');
-  await fs.writeFile(path.join(publicDir, 'boiii-beta.json'), JSON.stringify(betaManifest, null, 2) + '\n');
+  await fs.mkdir(publicDir, { recursive: true });
+
+  await fs.writeFile(
+    path.join(publicDir, 'boiii.json'),
+    JSON.stringify(mainManifest, null, 2) + '\n'
+  );
+
+  await fs.writeFile(
+    path.join(publicDir, 'boiii-beta.json'),
+    JSON.stringify(betaManifest, null, 2) + '\n'
+  );
 
   console.log(`Wrote public/boiii.json with ${mainManifest.length} files`);
   console.log(`Wrote public/boiii-beta.json with ${betaManifest.length} files`);
+
+  const hashNames = mainManifest.find((file) => file[0] === 'data/lookup_tables/hash_names.txt');
+  if (hashNames) {
+    console.log(`hash_names.txt size: ${hashNames[1]}`);
+    console.log(`hash_names.txt sha1: ${hashNames[2]}`);
+  } else {
+    console.log('WARNING: data/lookup_tables/hash_names.txt was not found in public/boiii');
+  }
 }
 
 main().catch((error) => {
