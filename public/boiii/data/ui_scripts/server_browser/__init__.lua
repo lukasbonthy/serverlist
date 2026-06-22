@@ -91,25 +91,18 @@ local function isSwiflyServerName(value)
   return string.find(value, PINNED_SERVER_NAME, 1, true) ~= nil
 end
 
-local function getSwiflyDisplayName(value)
-  value = value or ""
-  if isSwiflyServerName(value) and not string.find(swiflyLower(value), "[swifly verified]", 1, true) then
-    return "[SWIFLY VERIFIED] " .. value
-  end
-  return value
-end
-
 local function applySwiflyServerNameStyle(textBox, value)
   if not textBox then
     return
   end
 
   if isSwiflyServerName(value) then
-    -- Safe Swifly-only styling: no extra UI children, so the server list layout stays stable.
+    -- SAFE: only changes the existing server-name text box.
+    -- No extra UI children, no prefix, no longer text, no layout movement.
     textBox:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
     textBox:setRGB(0.20, 1.00, 1.00)
   else
-    -- Reset recycled row styling so non-Swifly rows stay normal.
+    -- Important because BO3 reuses list rows.
     textBox:setTTF("fonts/default.ttf")
     textBox:setRGB(1.00, 1.00, 1.00)
   end
@@ -794,7 +787,6 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   self.onlyChildrenFocusable = true
   self.anyChildUsesUpdateState = true
 
-
   local passwordFlag = CoD.ServerBrowserFlag.new(menu, controller)
   passwordFlag:setLeftRight(true, false, 0, 28)
   passwordFlag:setTopBottom(true, true, 0, 0)
@@ -873,7 +865,6 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   self:addElement(rankedFlag)
   self.rankedFlag = rankedFlag
 
-
   local name = CoD.horizontalScrollingTextBox_18pt.new(menu, controller)
   name:setLeftRight(true, false, 90, 330)
   name:setTopBottom(true, false, 2, 20)
@@ -882,10 +873,9 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   name:linkToElementModel(self, "name", true, function(model)
     local _name = Engine.GetModelValue(model)
     if _name then
-      local rawDisplayName = Engine.Localize(_name)
-      local displayName = getSwiflyDisplayName(rawDisplayName)
+      local displayName = Engine.Localize(_name)
       name.textBox:setText(displayName)
-      applySwiflyServerNameStyle(name.textBox, rawDisplayName)
+      applySwiflyServerNameStyle(name.textBox, displayName)
     else
       applySwiflyServerNameStyle(name.textBox, "")
     end
@@ -1105,14 +1095,9 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
     end
   end)
   LUI.OverrideFunction_CallOriginalSecond(self, "close", function(element)
-    stopSwiflyNamePulse(element)
     element.passwordFlag:close()
     element.dedicatedFlag:close()
     element.rankedFlag:close()
-    element.swiflyRowBg:close()
-    element.swiflyRowAccent:close()
-    element.swiflyPulseDriver:close()
-    element.swiflyNameGlow:close()
     element.name:close()
     element.map:close()
     element.hardcoreFlag:close()
