@@ -30,6 +30,11 @@
     "8B3F8CA5EE74BDC5D7AF01DA70101D22E921F9E0"
   ],
   [
+    "data/launcher.zip",
+    171941,
+    "4623C380C5995A4E7E232ED56DB079D97024D7EE"
+  ],
+  [
     "data/launcher/bigboiii.jpg",
     246543,
     "0921FB1DC11697FC6EBE9465864CE6EB317C7FF4"
@@ -68,11 +73,6 @@
     "data/launcher/verification.json",
     170347,
     "8BD2403D6BB826A2B7E0E8951BDECC2D6E05FBB2"
-  ],
-  [
-    "data/launcher.zip",
-    171941,
-    "4623C380C5995A4E7E232ED56DB079D97024D7EE"
   ],
   [
     "data/lookup_tables/dvar_list.txt",
@@ -231,8 +231,8 @@
   ],
   [
     "data/ui_scripts/server_browser/__init__.lua",
-    43618,
-    "6EAAF7A299CE5D4977E397A930E0C3F30BBE183A"
+    44399,
+    "08926C36AFAD969ABBC5948B91CB6F44789DB335"
   ],
   [
     "data/ui_scripts/stats/__init__.lua",
