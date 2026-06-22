@@ -15,7 +15,7 @@ const PINNED_SERVERS = ["mp1.swifly.net:1154"];
 const RAIDMAX_SERVERS_PAGE = "http://api.raidmax.org:5000/servers";
 const RAIDMAX_CACHE_SECONDS = 60;
 
-const ROOT = path.resolve(__dirname, "..");
+const ROOT = path.resolve(__dirname);
 const PUBLIC_DIR = path.join(ROOT, "public");
 const BOIII_DIR = path.join(PUBLIC_DIR, "boiii");
 const BETA_DIR = path.join(BOIII_DIR, "beta");
@@ -916,7 +916,7 @@ app.get("/manifest-debug.json", (_req, res) => {
   res.removeHeader("ETag");
   res.json({
     ok: true,
-    note: "This build uses the Swifly server-name style patched __init__.lua and live manifest matching.",
+    note: "This build uses the uploaded __init__(2).lua contents but hosts it as __init__.lua.",
     checkedFile: wanted,
     actualExists,
     actualSize,
@@ -925,8 +925,8 @@ app.get("/manifest-debug.json", (_req, res) => {
     betaEntry,
     matches: !!(mainEntry && actualSize === mainEntry[1] && actualSha1 === mainEntry[2]),
     expectedForThisBuild: {
-      size: 44399,
-      sha1: "08926C36AFAD969ABBC5948B91CB6F44789DB335"
+      size: 43618,
+      sha1: "6EAAF7A299CE5D4977E397A930E0C3F30BBE183A"
     },
     serverStartedAt: SERVER_STARTED_AT,
     generatedAt: new Date().toISOString(),
