@@ -5,11 +5,6 @@
     "D016762CFCFA8CBF7F4D3C65657160F35334C059"
   ],
   [
-    "data/SWIFLY_JOIN_GAME_README.txt",
-    768,
-    "3A86A4B19D6031BF1876355F0A65A9020A9C1E78"
-  ],
-  [
     "data/base_mp_maps.json",
     917,
     "1CB40B5BD97EA53CDE4D34162735AD89BA2F080D"
@@ -28,6 +23,11 @@
     "data/grain.png",
     58825,
     "8B3F8CA5EE74BDC5D7AF01DA70101D22E921F9E0"
+  ],
+  [
+    "data/launcher.zip",
+    171941,
+    "4623C380C5995A4E7E232ED56DB079D97024D7EE"
   ],
   [
     "data/launcher/bigboiii.jpg",
@@ -70,11 +70,6 @@
     "8BD2403D6BB826A2B7E0E8951BDECC2D6E05FBB2"
   ],
   [
-    "data/launcher.zip",
-    171941,
-    "4623C380C5995A4E7E232ED56DB079D97024D7EE"
-  ],
-  [
     "data/lookup_tables/dvar_list.txt",
     169191,
     "5F581AB66E36539BB89744806C23CE0035F56BCA"
@@ -100,16 +95,6 @@
     "0CD0AA63807E04A0FB47FEBA65835106AEA573F3"
   ],
   [
-    "data/scripts/mp/bots/_bot.gsc",
-    15384,
-    "A9C684D25C5A53E52AF5EB9E5A12C033E8EE56BD"
-  ],
-  [
-    "data/scripts/mp/bots/_bot.gsc_raw",
-    20659,
-    "10E0B569788EFD2BD25BD89349B3C9E553493E54"
-  ],
-  [
     "data/scripts/mp/bots/_bot_loadout.gsc",
     15500,
     "F8AB0766A622F414B4D371C838BD1BAF4C34292E"
@@ -118,6 +103,16 @@
     "data/scripts/mp/bots/_bot_loadout.gsc_raw",
     19931,
     "746A13D197F6FD3B6BC9561C4D3F1B1B66994119"
+  ],
+  [
+    "data/scripts/mp/bots/_bot.gsc",
+    15384,
+    "A9C684D25C5A53E52AF5EB9E5A12C033E8EE56BD"
+  ],
+  [
+    "data/scripts/mp/bots/_bot.gsc_raw",
+    20659,
+    "10E0B569788EFD2BD25BD89349B3C9E553493E54"
   ],
   [
     "data/scripts/mp/gametypes/_serversettings.gsc",
@@ -143,6 +138,11 @@
     "data/seed_servers.json",
     3,
     "CD0D4CC32346750408F7D4F5E78EC9A6E5B79A0D"
+  ],
+  [
+    "data/SWIFLY_JOIN_GAME_README.txt",
+    768,
+    "3A86A4B19D6031BF1876355F0A65A9020A9C1E78"
   ],
   [
     "data/tailwind.css",
@@ -231,8 +231,8 @@
   ],
   [
     "data/ui_scripts/server_browser/__init__.lua",
-    43618,
-    "6EAAF7A299CE5D4977E397A930E0C3F30BBE183A"
+    44423,
+    "A250230CE5767B7F4B6FC944EE593A1244B9E9D1"
   ],
   [
     "data/ui_scripts/stats/__init__.lua",

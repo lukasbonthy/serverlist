@@ -15,7 +15,7 @@ const PINNED_SERVERS = ["mp1.swifly.net:1154"];
 const RAIDMAX_SERVERS_PAGE = "http://api.raidmax.org:5000/servers";
 const RAIDMAX_CACHE_SECONDS = 60;
 
-const ROOT = path.resolve(__dirname, "..");
+const ROOT = path.resolve(__dirname);
 const PUBLIC_DIR = path.join(ROOT, "public");
 const BOIII_DIR = path.join(PUBLIC_DIR, "boiii");
 const BETA_DIR = path.join(BOIII_DIR, "beta");

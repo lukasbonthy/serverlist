@@ -91,17 +91,32 @@ local function isSwiflyServerName(value)
   return string.find(value, PINNED_SERVER_NAME, 1, true) ~= nil
 end
 
+<<<<<<< HEAD
 local function applySwiflyServerNameStyle(textBox, value)
+=======
+local function applySwiflyNameOnlyStyle(textBox, originalName)
+>>>>>>> c17eeffe7d2a6c08705b62655c3d4e7467d8a884
   if not textBox then
     return
   end
 
+<<<<<<< HEAD
   if isSwiflyServerName(value) then
     -- Make Swifly rows pop: sharper BO3-style font + cyan/gold glow-ish color.
     textBox:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
     textBox:setRGB(0.20, 1.00, 1.00)
   else
     -- Reset recycled row styling so every non-Swifly row stays normal.
+=======
+  if isSwiflyServerName(originalName) then
+    -- SAFE: only changes the existing name textbox.
+    -- No extra UI elements, no row backgrounds, no glow layers, no column layout changes.
+    textBox:setText(">> SWIFLY FEATURED <<")
+    textBox:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
+    textBox:setRGB(0.20, 1.00, 1.00)
+  else
+    textBox:setText(Engine.Localize(originalName or ""))
+>>>>>>> c17eeffe7d2a6c08705b62655c3d4e7467d8a884
     textBox:setTTF("fonts/default.ttf")
     textBox:setRGB(1.00, 1.00, 1.00)
   end
@@ -872,11 +887,17 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   name:linkToElementModel(self, "name", true, function(model)
     local _name = Engine.GetModelValue(model)
     if _name then
+<<<<<<< HEAD
       local displayName = Engine.Localize(_name)
       name.textBox:setText(displayName)
       applySwiflyServerNameStyle(name.textBox, displayName)
     else
       applySwiflyServerNameStyle(name.textBox, "")
+=======
+      applySwiflyNameOnlyStyle(name.textBox, Engine.Localize(_name))
+    else
+      applySwiflyNameOnlyStyle(name.textBox, "")
+>>>>>>> c17eeffe7d2a6c08705b62655c3d4e7467d8a884
     end
   end)
   self:addElement(name)
