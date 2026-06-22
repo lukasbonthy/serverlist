@@ -85,6 +85,28 @@ local function isPinnedServerInfo(info)
   return false
 end
 
+
+local function isSwiflyServerName(value)
+  value = swiflyLower(value or "")
+  return string.find(value, PINNED_SERVER_NAME, 1, true) ~= nil
+end
+
+local function applySwiflyServerNameStyle(textBox, value)
+  if not textBox then
+    return
+  end
+
+  if isSwiflyServerName(value) then
+    -- Make Swifly rows pop: sharper BO3-style font + cyan/gold glow-ish color.
+    textBox:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
+    textBox:setRGB(0.20, 1.00, 1.00)
+  else
+    -- Reset recycled row styling so every non-Swifly row stays normal.
+    textBox:setTTF("fonts/default.ttf")
+    textBox:setRGB(1.00, 1.00, 1.00)
+  end
+end
+
 local function findPinnedRawIndex()
   local rawCount = game.getrawservercount()
   for i = 0, rawCount - 1 do
@@ -850,7 +872,11 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   name:linkToElementModel(self, "name", true, function(model)
     local _name = Engine.GetModelValue(model)
     if _name then
-      name.textBox:setText(Engine.Localize(_name))
+      local displayName = Engine.Localize(_name)
+      name.textBox:setText(displayName)
+      applySwiflyServerNameStyle(name.textBox, displayName)
+    else
+      applySwiflyServerNameStyle(name.textBox, "")
     end
   end)
   self:addElement(name)
