@@ -915,7 +915,7 @@ app.get("/manifest-debug.json", (_req, res) => {
   res.removeHeader("ETag");
   res.json({
     ok: true,
-    note: "This build uses the uploaded __init__(2).lua contents but hosts it as __init__.lua.",
+    note: "This build uses the Swifly server-name style patched __init__.lua and live manifest matching.",
     checkedFile: wanted,
     actualExists,
     actualSize,
@@ -924,8 +924,8 @@ app.get("/manifest-debug.json", (_req, res) => {
     betaEntry,
     matches: !!(mainEntry && actualSize === mainEntry[1] && actualSha1 === mainEntry[2]),
     expectedForThisBuild: {
-      size: 43618,
-      sha1: "6EAAF7A299CE5D4977E397A930E0C3F30BBE183A"
+      size: 44399,
+      sha1: "08926C36AFAD969ABBC5948B91CB6F44789DB335"
     },
     serverStartedAt: SERVER_STARTED_AT,
     generatedAt: new Date().toISOString(),
