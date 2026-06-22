@@ -8,14 +8,13 @@ const cors = require("cors");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = "0.0.0.0";
-const SERVER_STARTED_AT = new Date().toISOString();
 
 const PUBLIC_HOST = "client.swifly.net";
 const PINNED_SERVERS = ["mp1.swifly.net:1154"];
 const RAIDMAX_SERVERS_PAGE = "http://api.raidmax.org:5000/servers";
 const RAIDMAX_CACHE_SECONDS = 60;
 
-const ROOT = path.resolve(__dirname);
+const ROOT = path.resolve(__dirname, "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
 const BOIII_DIR = path.join(PUBLIC_DIR, "boiii");
 const BETA_DIR = path.join(BOIII_DIR, "beta");
@@ -84,23 +83,13 @@ function getManifests() {
 }
 
 function sendManifest(res, manifest) {
-  res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
-  res.setHeader("CDN-Cache-Control", "no-store");
-  res.setHeader("Surrogate-Control", "no-store");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.removeHeader("ETag");
-  res.status(200).type("application/json").send(JSON.stringify(manifest, null, 2) + "
-");
+  res.setHeader("Cache-Control", "no-store");
+  res.type("json").send(JSON.stringify(manifest, null, 2) + "\n");
 }
 
 function sendFileIfExists(res, filePath) {
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
-  res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
-  res.setHeader("CDN-Cache-Control", "no-store");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.removeHeader("ETag");
+  res.setHeader("Cache-Control", "no-store");
   res.sendFile(filePath);
   return true;
 }
@@ -813,7 +802,6 @@ async function getMergedServers(forceRaidmax = false) {
 const app = express();
 
 app.disable("x-powered-by");
-app.disable("etag");
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: false
@@ -860,13 +848,13 @@ app.get("/health", (_req, res) => {
 
 app.get("/servers.json", async (_req, res) => {
   const servers = await getMergedServers();
-  res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
+  res.setHeader("Cache-Control", "no-store");
   res.json({ servers });
 });
 
 app.get("/raidmax.json", async (_req, res) => {
   await fetchRaidmaxT7Servers(true);
-  res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
+  res.setHeader("Cache-Control", "no-store");
   res.json({
     mode: "GRAFANA_CONNECT_COLUMN_T7_ONLY",
     error: cachedRaidmaxError,
@@ -899,61 +887,6 @@ app.get("/status", async (_req, res) => {
   });
 });
 
-
-
-app.get("/manifest-debug.json", (_req, res) => {
-  const { main, beta } = getManifests();
-  const wanted = "data/ui_scripts/server_browser/__init__.lua";
-  const actualPath = path.join(BOIII_DIR, wanted);
-  const actualExists = fs.existsSync(actualPath);
-  const actualSize = actualExists ? fs.statSync(actualPath).size : null;
-  const actualSha1 = actualExists ? sha1File(actualPath) : null;
-  const mainEntry = main.find((entry) => entry[0] === wanted) || null;
-  const betaEntry = beta.find((entry) => entry[0] === wanted) || null;
-
-  res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
-  res.setHeader("CDN-Cache-Control", "no-store");
-  res.removeHeader("ETag");
-  res.json({
-    ok: true,
-    note: "This build uses the uploaded __init__(2).lua contents but hosts it as __init__.lua.",
-    checkedFile: wanted,
-    actualExists,
-    actualSize,
-    actualSha1,
-    mainEntry,
-    betaEntry,
-    matches: !!(mainEntry && actualSize === mainEntry[1] && actualSha1 === mainEntry[2]),
-    expectedForThisBuild: {
-      size: 43618,
-      sha1: "6EAAF7A299CE5D4977E397A930E0C3F30BBE183A"
-    },
-    serverStartedAt: SERVER_STARTED_AT,
-    generatedAt: new Date().toISOString(),
-    mainFileCount: main.length,
-    betaFileCount: beta.length
-  });
-});
-
-app.get("/rebuild-manifest-now", (_req, res) => {
-  const { main, beta } = getManifests();
-  fs.writeFileSync(path.join(PUBLIC_DIR, "boiii.json"), JSON.stringify(main, null, 2) + "\n");
-  fs.writeFileSync(path.join(PUBLIC_DIR, "boiii-beta.json"), JSON.stringify(beta, null, 2) + "\n");
-  fs.writeFileSync(path.join(ROOT, "boiii.json"), JSON.stringify(main, null, 2) + "\n");
-  fs.writeFileSync(path.join(ROOT, "boiii-beta.json"), JSON.stringify(beta, null, 2) + "\n");
-
-  const wanted = "data/ui_scripts/server_browser/__init__.lua";
-  const mainEntry = main.find((entry) => entry[0] === wanted) || null;
-  res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
-  res.removeHeader("ETag");
-  res.json({
-    ok: true,
-    rebuiltStaticCopiesToo: true,
-    mainEntry,
-    generatedAt: new Date().toISOString()
-  });
-});
-
 app.get("/boiii.json", (_req, res) => sendManifest(res, getManifests().main));
 app.get("/boiii-beta.json", (_req, res) => sendManifest(res, getManifests().beta));
 
@@ -975,7 +908,7 @@ app.use("/boiii", express.static(BOIII_DIR, {
   lastModified: true,
   maxAge: 0,
   setHeaders(res) {
-    res.setHeader("Cache-Control", "private, no-store, no-cache, max-age=0, s-maxage=0, must-revalidate, proxy-revalidate");
+    res.setHeader("Cache-Control", "no-store");
   }
 }));
 
