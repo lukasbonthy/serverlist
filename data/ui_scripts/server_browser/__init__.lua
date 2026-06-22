@@ -85,32 +85,6 @@ local function isPinnedServerInfo(info)
   return false
 end
 
-
-local function isSwiflyServerName(value)
-  value = swiflyLower(value or "")
-  return string.find(value, PINNED_SERVER_NAME, 1, true) ~= nil
-end
-
-local function applySwiflyBoldNameStyle(textBox, originalName)
-  if not textBox then
-    return
-  end
-
-  local displayName = Engine.Localize(originalName or "")
-  textBox:setText(displayName)
-
-  if isSwiflyServerName(displayName) then
-    -- Safe Swifly-only styling:
-    -- Only changes the existing server-name textbox.
-    -- No extra UI elements, no prefix, no glow layer, no background, no layout changes.
-    textBox:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
-    textBox:setRGB(0.20, 1.00, 1.00)
-  else
-    textBox:setTTF("fonts/default.ttf")
-    textBox:setRGB(1.00, 1.00, 1.00)
-  end
-end
-
 local function findPinnedRawIndex()
   local rawCount = game.getrawservercount()
   for i = 0, rawCount - 1 do
@@ -876,9 +850,7 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   name:linkToElementModel(self, "name", true, function(model)
     local _name = Engine.GetModelValue(model)
     if _name then
-      applySwiflyBoldNameStyle(name.textBox, _name)
-    else
-      applySwiflyBoldNameStyle(name.textBox, "")
+      name.textBox:setText(Engine.Localize(_name))
     end
   end)
   self:addElement(name)
