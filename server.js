@@ -90,8 +90,7 @@ function sendManifest(res, manifest) {
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   res.removeHeader("ETag");
-  res.status(200).type("application/json").send(JSON.stringify(manifest, null, 2) + "
-");
+  res.status(200).type("application/json").send(JSON.stringify(manifest, null, 2) + "\n");
 }
 
 function sendFileIfExists(res, filePath) {
