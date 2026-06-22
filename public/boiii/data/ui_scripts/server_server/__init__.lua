@@ -85,120 +85,6 @@ local function isPinnedServerInfo(info)
   return false
 end
 
-
-local function isSwiflyServerName(value)
-  value = swiflyLower(value or "")
-  return string.find(value, PINNED_SERVER_NAME, 1, true) ~= nil
-end
-
-local function getSwiflyDisplayName(value)
-  value = value or ""
-  if isSwiflyServerName(value) and not string.find(swiflyLower(value), "[swifly verified]", 1, true) then
-    return "[SWIFLY VERIFIED] " .. value
-  end
-  return value
-end
-
-local function setSwiflyElementAlpha(element, alpha)
-  if element then
-    element:setAlpha(alpha)
-  end
-end
-
-local function setSwiflyPulseColor(row, r, g, b)
-  pcall(function()
-    if row.name and row.name.textBox then
-      row.name.textBox:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.name.textBox:setRGB(r, g, b)
-    end
-    if row.swiflyNameGlow then
-      row.swiflyNameGlow:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyNameGlow:setRGB(r, g, b)
-    end
-    if row.swiflyRowAccent then
-      row.swiflyRowAccent:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyRowAccent:setRGB(r, g, b)
-    end
-    if row.swiflyRowBg then
-      row.swiflyRowBg:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyRowBg:setRGB(r * 0.10, g * 0.07, b * 0.16)
-      row.swiflyRowBg:setAlpha(0.36)
-    end
-  end)
-end
-
-local function stopSwiflyNamePulse(row)
-  row.swiflyPulseActive = false
-end
-
-local function startSwiflyNamePulse(row)
-  if row.swiflyPulseActive then
-    return
-  end
-  row.swiflyPulseActive = true
-
-  local pulseToPurple
-  local pulseToCyan
-
-  pulseToPurple = function(element, event)
-    if not row.swiflyPulseActive then
-      return
-    end
-    setSwiflyPulseColor(row, 0.72, 0.20, 1.00)
-    if row.swiflyPulseDriver then
-      row.swiflyPulseDriver:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyPulseDriver:setAlpha(0)
-      row.swiflyPulseDriver:registerEventHandler("transition_complete_keyframe", pulseToCyan)
-    end
-  end
-
-  pulseToCyan = function(element, event)
-    if not row.swiflyPulseActive then
-      return
-    end
-    setSwiflyPulseColor(row, 0.20, 1.00, 1.00)
-    if row.swiflyPulseDriver then
-      row.swiflyPulseDriver:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyPulseDriver:setAlpha(0)
-      row.swiflyPulseDriver:registerEventHandler("transition_complete_keyframe", pulseToPurple)
-    end
-  end
-
-  pulseToPurple(row.swiflyPulseDriver, {})
-end
-
-local function applySwiflyServerNameStyle(row, textBox, value, displayValue)
-  if not textBox then
-    return
-  end
-
-  local isSwifly = isSwiflyServerName(value)
-
-  if isSwifly then
-    -- Swifly-only: verified badge text, fake glow layer, pulsing cyan/purple, and row background.
-    textBox:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
-    textBox:setRGB(0.20, 1.00, 1.00)
-
-    if row.swiflyNameGlow then
-      row.swiflyNameGlow:setText(displayValue or value or "")
-      row.swiflyNameGlow:setAlpha(0.45)
-      row.swiflyNameGlow:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
-      row.swiflyNameGlow:setRGB(0.72, 0.20, 1.00)
-    end
-    setSwiflyElementAlpha(row.swiflyRowBg, 0.36)
-    setSwiflyElementAlpha(row.swiflyRowAccent, 0.95)
-    startSwiflyNamePulse(row)
-  else
-    -- Reset recycled row styling so every non-Swifly row stays normal.
-    stopSwiflyNamePulse(row)
-    textBox:setTTF("fonts/default.ttf")
-    textBox:setRGB(1.00, 1.00, 1.00)
-    setSwiflyElementAlpha(row.swiflyNameGlow, 0)
-    setSwiflyElementAlpha(row.swiflyRowBg, 0)
-    setSwiflyElementAlpha(row.swiflyRowAccent, 0)
-  end
-end
-
 local function findPinnedRawIndex()
   local rawCount = game.getrawservercount()
   for i = 0, rawCount - 1 do
@@ -868,7 +754,7 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   if PreLoadFunc then
     PreLoadFunc(self, controller)
   end
-  self:setUseStencil(false)
+  self:setUseStencil(true)
   self:setClass(CoD.ServerBrowserRowInternal)
   self.id = "ServerBrowserRowInternal"
   self.soundSet = "default"
@@ -877,36 +763,6 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   self:makeFocusable()
   self.onlyChildrenFocusable = true
   self.anyChildUsesUpdateState = true
-
-  local swiflyRowBg = LUI.UIImage.new()
-  swiflyRowBg:setLeftRight(true, false, 88, 700)
-  swiflyRowBg:setTopBottom(true, false, -1, 23)
-  swiflyRowBg:setRGB(0.02, 0.00, 0.08)
-  swiflyRowBg:setAlpha(0)
-  pcall(function()
-    swiflyRowBg:setImage(RegisterImage("white"))
-  end)
-  self:addElement(swiflyRowBg)
-  self.swiflyRowBg = swiflyRowBg
-
-  local swiflyRowAccent = LUI.UIImage.new()
-  swiflyRowAccent:setLeftRight(true, false, 88, 92)
-  swiflyRowAccent:setTopBottom(true, false, 0, 22)
-  swiflyRowAccent:setRGB(0.20, 1.00, 1.00)
-  swiflyRowAccent:setAlpha(0)
-  pcall(function()
-    swiflyRowAccent:setImage(RegisterImage("white"))
-  end)
-  self:addElement(swiflyRowAccent)
-  self.swiflyRowAccent = swiflyRowAccent
-
-  local swiflyPulseDriver = LUI.UIElement.new()
-  swiflyPulseDriver:setLeftRight(true, false, 0, 1)
-  swiflyPulseDriver:setTopBottom(true, false, 0, 1)
-  swiflyPulseDriver:setAlpha(0)
-  self:addElement(swiflyPulseDriver)
-  self.swiflyPulseDriver = swiflyPulseDriver
-
 
   local passwordFlag = CoD.ServerBrowserFlag.new(menu, controller)
   passwordFlag:setLeftRight(true, false, 0, 28)
@@ -986,34 +842,19 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   self:addElement(rankedFlag)
   self.rankedFlag = rankedFlag
 
-  local swiflyNameGlow = LUI.UIText.new()
-  swiflyNameGlow:setLeftRight(true, false, 91, 331)
-  swiflyNameGlow:setTopBottom(true, false, 3, 21)
-  swiflyNameGlow:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
-  swiflyNameGlow:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
-  swiflyNameGlow:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_TOP)
-  swiflyNameGlow:setRGB(0.72, 0.20, 1.00)
-  swiflyNameGlow:setAlpha(0)
-  self:addElement(swiflyNameGlow)
-  self.swiflyNameGlow = swiflyNameGlow
-
-  local name = CoD.horizontalScrollingTextBox_18pt.new(menu, controller)
+  local name = LUI.UIText.new()
   name:setLeftRight(true, false, 90, 330)
   name:setTopBottom(true, false, 2, 20)
-  name.textBox:setTTF("fonts/default.ttf")
-  name.textBox:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+  name:setTTF("fonts/default.ttf")
+  name:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+  name:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_TOP)
+  name:setRGB(1.0, 1.0, 1.0)
   name:linkToElementModel(self, "name", true, function(model)
     local _name = Engine.GetModelValue(model)
     if _name then
-      local rawDisplayName = Engine.Localize(_name)
-      local displayName = getSwiflyDisplayName(rawDisplayName)
-      name.textBox:setText(displayName)
-      if self.swiflyNameGlow then
-        self.swiflyNameGlow:setText(displayName)
-      end
-      applySwiflyServerNameStyle(self, name.textBox, rawDisplayName, displayName)
+      name:setText(Engine.Localize(_name))
     else
-      applySwiflyServerNameStyle(self, name.textBox, "", "")
+      name:setText("")
     end
   end)
   self:addElement(name)
@@ -1026,15 +867,19 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   self:addElement(spacer)
   self.spacer = spacer
 
-  local map = CoD.horizontalScrollingTextBox_18pt.new(menu, controller)
+  local map = LUI.UIText.new()
   map:setLeftRight(true, false, 341, 446)
   map:setTopBottom(true, false, 2, 20)
-  map.textBox:setTTF("fonts/default.ttf")
-  map.textBox:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+  map:setTTF("fonts/default.ttf")
+  map:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
+  map:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_TOP)
+  map:setRGB(1.0, 1.0, 1.0)
   map:linkToElementModel(self, "mapName", true, function(model)
     local mapName = Engine.GetModelValue(model)
     if mapName then
-      map.textBox:setText(MapNameToLocalizedMapName(mapName))
+      map:setText(MapNameToLocalizedMapName(mapName))
+    else
+      map:setText("")
     end
   end)
   self:addElement(map)
@@ -1231,14 +1076,9 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
     end
   end)
   LUI.OverrideFunction_CallOriginalSecond(self, "close", function(element)
-    stopSwiflyNamePulse(element)
     element.passwordFlag:close()
     element.dedicatedFlag:close()
     element.rankedFlag:close()
-    element.swiflyRowBg:close()
-    element.swiflyRowAccent:close()
-    element.swiflyPulseDriver:close()
-    element.swiflyNameGlow:close()
     element.name:close()
     element.map:close()
     element.hardcoreFlag:close()
