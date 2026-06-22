@@ -99,103 +99,19 @@ local function getSwiflyDisplayName(value)
   return value
 end
 
-local function setSwiflyElementAlpha(element, alpha)
-  if element then
-    element:setAlpha(alpha)
-  end
-end
-
-local function setSwiflyPulseColor(row, r, g, b)
-  pcall(function()
-    if row.name and row.name.textBox then
-      row.name.textBox:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.name.textBox:setRGB(r, g, b)
-    end
-    if row.swiflyNameGlow then
-      row.swiflyNameGlow:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyNameGlow:setRGB(r, g, b)
-    end
-    if row.swiflyRowAccent then
-      row.swiflyRowAccent:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyRowAccent:setRGB(r, g, b)
-    end
-    if row.swiflyRowBg then
-      row.swiflyRowBg:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyRowBg:setRGB(r * 0.10, g * 0.07, b * 0.16)
-      row.swiflyRowBg:setAlpha(0.36)
-    end
-  end)
-end
-
-local function stopSwiflyNamePulse(row)
-  row.swiflyPulseActive = false
-end
-
-local function startSwiflyNamePulse(row)
-  if row.swiflyPulseActive then
-    return
-  end
-  row.swiflyPulseActive = true
-
-  local pulseToPurple
-  local pulseToCyan
-
-  pulseToPurple = function(element, event)
-    if not row.swiflyPulseActive then
-      return
-    end
-    setSwiflyPulseColor(row, 0.72, 0.20, 1.00)
-    if row.swiflyPulseDriver then
-      row.swiflyPulseDriver:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyPulseDriver:setAlpha(0)
-      row.swiflyPulseDriver:registerEventHandler("transition_complete_keyframe", pulseToCyan)
-    end
-  end
-
-  pulseToCyan = function(element, event)
-    if not row.swiflyPulseActive then
-      return
-    end
-    setSwiflyPulseColor(row, 0.20, 1.00, 1.00)
-    if row.swiflyPulseDriver then
-      row.swiflyPulseDriver:beginAnimation("keyframe", 650, false, false, CoD.TweenType.Linear)
-      row.swiflyPulseDriver:setAlpha(0)
-      row.swiflyPulseDriver:registerEventHandler("transition_complete_keyframe", pulseToPurple)
-    end
-  end
-
-  pulseToPurple(row.swiflyPulseDriver, {})
-end
-
-local function applySwiflyServerNameStyle(row, textBox, value, displayValue)
+local function applySwiflyServerNameStyle(textBox, value)
   if not textBox then
     return
   end
 
-  local isSwifly = isSwiflyServerName(value)
-
-  if isSwifly then
-    -- Swifly-only: verified badge text, fake glow layer, pulsing cyan/purple, and row background.
+  if isSwiflyServerName(value) then
+    -- Safe Swifly-only styling: no extra UI children, so the server list layout stays stable.
     textBox:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
     textBox:setRGB(0.20, 1.00, 1.00)
-
-    if row.swiflyNameGlow then
-      row.swiflyNameGlow:setText(displayValue or value or "")
-      row.swiflyNameGlow:setAlpha(0.45)
-      row.swiflyNameGlow:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
-      row.swiflyNameGlow:setRGB(0.72, 0.20, 1.00)
-    end
-    setSwiflyElementAlpha(row.swiflyRowBg, 0.36)
-    setSwiflyElementAlpha(row.swiflyRowAccent, 0.95)
-    startSwiflyNamePulse(row)
   else
-    -- Reset recycled row styling so every non-Swifly row stays normal.
-    stopSwiflyNamePulse(row)
+    -- Reset recycled row styling so non-Swifly rows stay normal.
     textBox:setTTF("fonts/default.ttf")
     textBox:setRGB(1.00, 1.00, 1.00)
-    setSwiflyElementAlpha(row.swiflyNameGlow, 0)
-    setSwiflyElementAlpha(row.swiflyRowBg, 0)
-    setSwiflyElementAlpha(row.swiflyRowAccent, 0)
   end
 end
 
@@ -878,35 +794,6 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   self.onlyChildrenFocusable = true
   self.anyChildUsesUpdateState = true
 
-  local swiflyRowBg = LUI.UIImage.new()
-  swiflyRowBg:setLeftRight(true, false, 88, 700)
-  swiflyRowBg:setTopBottom(true, false, -1, 23)
-  swiflyRowBg:setRGB(0.02, 0.00, 0.08)
-  swiflyRowBg:setAlpha(0)
-  pcall(function()
-    swiflyRowBg:setImage(RegisterImage("white"))
-  end)
-  self:addElement(swiflyRowBg)
-  self.swiflyRowBg = swiflyRowBg
-
-  local swiflyRowAccent = LUI.UIImage.new()
-  swiflyRowAccent:setLeftRight(true, false, 88, 92)
-  swiflyRowAccent:setTopBottom(true, false, 0, 22)
-  swiflyRowAccent:setRGB(0.20, 1.00, 1.00)
-  swiflyRowAccent:setAlpha(0)
-  pcall(function()
-    swiflyRowAccent:setImage(RegisterImage("white"))
-  end)
-  self:addElement(swiflyRowAccent)
-  self.swiflyRowAccent = swiflyRowAccent
-
-  local swiflyPulseDriver = LUI.UIElement.new()
-  swiflyPulseDriver:setLeftRight(true, false, 0, 1)
-  swiflyPulseDriver:setTopBottom(true, false, 0, 1)
-  swiflyPulseDriver:setAlpha(0)
-  self:addElement(swiflyPulseDriver)
-  self.swiflyPulseDriver = swiflyPulseDriver
-
 
   local passwordFlag = CoD.ServerBrowserFlag.new(menu, controller)
   passwordFlag:setLeftRight(true, false, 0, 28)
@@ -986,16 +873,6 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
   self:addElement(rankedFlag)
   self.rankedFlag = rankedFlag
 
-  local swiflyNameGlow = LUI.UIText.new()
-  swiflyNameGlow:setLeftRight(true, false, 91, 331)
-  swiflyNameGlow:setTopBottom(true, false, 3, 21)
-  swiflyNameGlow:setTTF("fonts/RefrigeratorDeluxe-Regular.ttf")
-  swiflyNameGlow:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_LEFT)
-  swiflyNameGlow:setAlignment(Enum.LUIAlignment.LUI_ALIGNMENT_TOP)
-  swiflyNameGlow:setRGB(0.72, 0.20, 1.00)
-  swiflyNameGlow:setAlpha(0)
-  self:addElement(swiflyNameGlow)
-  self.swiflyNameGlow = swiflyNameGlow
 
   local name = CoD.horizontalScrollingTextBox_18pt.new(menu, controller)
   name:setLeftRight(true, false, 90, 330)
@@ -1008,12 +885,9 @@ CoD.ServerBrowserRowInternal.new = function(menu, controller)
       local rawDisplayName = Engine.Localize(_name)
       local displayName = getSwiflyDisplayName(rawDisplayName)
       name.textBox:setText(displayName)
-      if self.swiflyNameGlow then
-        self.swiflyNameGlow:setText(displayName)
-      end
-      applySwiflyServerNameStyle(self, name.textBox, rawDisplayName, displayName)
+      applySwiflyServerNameStyle(name.textBox, rawDisplayName)
     else
-      applySwiflyServerNameStyle(self, name.textBox, "", "")
+      applySwiflyServerNameStyle(name.textBox, "")
     end
   end)
   self:addElement(name)
